@@ -1,0 +1,18 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Node (only if tooling is added later)
+node_modules/
+
+# clasp credentials (the global ~/.clasprc.json lives outside the repo;
+# this guards against a local copy ever landing here)
+.clasprc.json
+
+# Internal session handoff — contains the default login + Sheet/script IDs.
+# Kept out of the (public) repo. Delete this line to include it.
+SESSION.md

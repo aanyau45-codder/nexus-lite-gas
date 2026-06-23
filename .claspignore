@@ -1,0 +1,11 @@
+# The Cloudflare Pages frontend is NOT part of the Apps Script project.
+# (rootDir is "" with skipSubdirectories:false, so without this clasp would try
+#  to push web/*.js as server scripts and web/index.html as a template.)
+web/**
+
+# Docs + tooling that don't belong in the script project.
+**/*.md
+node_modules/**
+.git/**
+.clasp.json
+.claspignore
