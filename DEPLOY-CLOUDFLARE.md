@@ -12,12 +12,18 @@ your own pace.
 
 ---
 
-## How it talks across origins
+## How it talks to the backend (via a proxy)
 
-The browser POSTs `{ fn, args }` to the `/exec` URL with `Content-Type: text/plain`. That keeps
-it a CORS "simple request", so the browser skips the preflight `OPTIONS` call that Apps Script
-can't answer. The token still travels inside the request body (no custom headers), so there's
-nothing for CORS to block.
+A browser **cannot** call the Apps Script `/exec` URL directly: Apps Script 302-redirects the POST
+to `script.googleusercontent.com`, and that host returns **404** whenever the request carries an
+`Origin` header (which browsers always add cross-origin). A CORS preflight to `/exec` also returns
+405. So direct browser calls are out.
+
+Instead, the frontend calls a **same-origin proxy** at `/api` — a Cloudflare Pages Function
+([`functions/api.js`](functions/api.js)). Because the browser talks to its own origin, there's no
+CORS and no preflight at all. The Function then calls Apps Script **server-side**, where no `Origin`
+header is sent, so the redirect resolves to JSON normally. The Apps Script `/exec` URL lives in
+`functions/api.js`; `web/config.js` just sets `API_URL = '/api'`.
 
 ---
 
@@ -55,10 +61,18 @@ wrangler login
 wrangler pages deploy web --project-name nexus-lite
 ```
 
-### Option C — Connect a Git repo
-If you push this project to GitHub/GitLab, in Pages choose **Connect to Git** and set:
+### Option C — Connect a Git repo (recommended — needed for the /api proxy)
+The `/api` proxy is a Pages Function in [`functions/`](functions/) at the **repo root**. For
+Cloudflare to pick it up, deploy the whole repo (not just the `web/` folder). In Pages choose
+**Connect to Git** and set:
+- **Root directory:** _(leave default — the repo root)_
 - **Build command:** _(none)_
 - **Build output directory:** `web`
+
+Cloudflare serves the static site from `web/` and the Function from `functions/` → `/api`.
+
+> Direct-upload of only the `web/` folder will **not** include the Function (it lives at the repo
+> root), so the app won't reach the backend. Use Git connect.
 
 ---
 

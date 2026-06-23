@@ -2,6 +2,7 @@
 # (rootDir is "" with skipSubdirectories:false, so without this clasp would try
 #  to push web/*.js as server scripts and web/index.html as a template.)
 web/**
+functions/**
 
 # Docs + tooling that don't belong in the script project.
 **/*.md
