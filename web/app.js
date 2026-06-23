@@ -22,6 +22,27 @@
   function todayISO() { return new Date().toISOString().slice(0, 10); }
   function dt(s) { return esc(String(s).slice(0, 16).replace('T', ' ')); }
 
+  // ---- icons (Lucide, inline SVG) -------------------------------------------
+  var ICONS = {
+    home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+    'shopping-cart': '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+    package: '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/>',
+    receipt: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    'bar-chart': '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+    settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+    menu: '<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+    moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+    'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
+    'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>'
+  };
+  function icon(name) {
+    return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
+  }
+
   // ---- server bridge (fetch → Apps Script JSON API) -------------------------
   function api(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
@@ -85,18 +106,18 @@
   }
   function toggleTheme() {
     applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
-    var b = $('#themeBtn'); if (b) b.textContent = document.documentElement.classList.contains('dark') ? '☀' : '☾';
+    var b = $('#themeBtn'); if (b) b.innerHTML = icon(document.documentElement.classList.contains('dark') ? 'sun' : 'moon');
   }
 
   // ---- navigation -----------------------------------------------------------
   var NAV = [
-    { id: 'dashboard', label: 'Home', icon: '⌂' },
-    { id: 'pos', label: 'POS', icon: '🛒' },
-    { id: 'inventory', label: 'Stock', icon: '📦' },
-    { id: 'sales', label: 'Sales', icon: '🧾' },
-    { id: 'customers', label: 'Customers', icon: '👥' },
-    { id: 'reports', label: 'Reports', icon: '📊' },
-    { id: 'settings', label: 'Settings', icon: '⚙' }
+    { id: 'dashboard', label: 'Home', icon: 'home' },
+    { id: 'pos', label: 'POS', icon: 'shopping-cart' },
+    { id: 'inventory', label: 'Stock', icon: 'package' },
+    { id: 'sales', label: 'Sales', icon: 'receipt' },
+    { id: 'customers', label: 'Customers', icon: 'users' },
+    { id: 'reports', label: 'Reports', icon: 'bar-chart' },
+    { id: 'settings', label: 'Settings', icon: 'settings' }
   ];
   function allowed() {
     if (!state.user) return [];
@@ -151,7 +172,7 @@
         '<div class="field"><label class="label">Username or email</label>' +
           '<input class="input" id="fi" autocomplete="off"></div>' +
         '<button class="btn btn-primary btn-block" id="fBtn">Send reset email</button>' +
-        '<p style="text-align:center;margin-top:14px"><span class="link" id="backLink">← Back to sign in</span></p>' +
+        '<p style="text-align:center;margin-top:14px"><span class="link" id="backLink">' + icon('arrow-left') + ' Back to sign in</span></p>' +
       '</div></div>';
     $('#backLink').addEventListener('click', renderLogin);
     $('#fBtn').addEventListener('click', function () {
@@ -189,19 +210,19 @@
       '<aside class="sidebar"><div class="brand"><span class="brand-mark">' + esc(brandInitial()) + '</span>' +
         '<span>' + esc(state.settings.businessName || 'Nexus Lite') + '</span></div>' +
         '<nav class="nav">' + nav.map(function (n) {
-          return '<div class="nav-item" data-go="' + n.id + '"><span class="nav-ico">' + n.icon + '</span><span>' + n.label + '</span></div>';
+          return '<div class="nav-item" data-go="' + n.id + '"><span class="nav-ico">' + icon(n.icon) + '</span><span>' + n.label + '</span></div>';
         }).join('') + '</nav>' +
         '<div class="side-foot">' + esc(state.user.name) + ' · ' + esc(state.user.role) + '</div></aside>' +
       '<div class="main"><header class="topbar">' +
-        '<button class="icon-btn only-mobile" id="menuBtn">☰</button>' +
+        '<button class="icon-btn only-mobile" id="menuBtn" title="Menu">' + icon('menu') + '</button>' +
         '<div class="biz">' + esc(state.settings.businessName || 'Nexus Lite') + '</div>' +
         '<div class="spacer"></div>' +
         '<span class="who only-desktop">' + esc(state.user.name) + ' · ' + esc(state.user.role) + '</span>' +
-        '<button class="icon-btn" id="themeBtn" title="Toggle theme">' + (isDark ? '☀' : '☾') + '</button>' +
-        '<button class="icon-btn" id="logoutBtn" title="Sign out">⎋</button>' +
+        '<button class="icon-btn" id="themeBtn" title="Toggle theme">' + icon(isDark ? 'sun' : 'moon') + '</button>' +
+        '<button class="icon-btn" id="logoutBtn" title="Sign out">' + icon('log-out') + '</button>' +
       '</header><main class="view" id="view"></main></div>' +
       '<nav class="bottom-nav">' + nav.slice(0, 5).map(function (n) {
-        return '<div class="bn-item" data-go="' + n.id + '"><span>' + n.icon + '</span><small>' + n.label + '</small></div>';
+        return '<div class="bn-item" data-go="' + n.id + '"><span class="bn-ico">' + icon(n.icon) + '</span><small>' + n.label + '</small></div>';
       }).join('') + '</nav><div class="backdrop"></div>';
 
     $('#themeBtn').addEventListener('click', toggleTheme);
@@ -286,7 +307,7 @@
           });
           $('#posGrid').innerHTML = list.length ? list.map(function (p) {
             return '<div class="tile' + (p.stock <= 0 ? ' out' : '') + '" data-add="' + p.id + '">' +
-              '<div class="ph">' + (p.imageUrl ? '<img src="' + esc(p.imageUrl) + '" alt="">' : '📦') + '</div>' +
+              '<div class="ph">' + (p.imageUrl ? '<img src="' + esc(p.imageUrl) + '" alt="">' : icon('package')) + '</div>' +
               '<div class="nm">' + esc(p.name) + '</div>' +
               '<div class="pr">' + money(p.price) + '</div>' +
               '<div class="st">' + (p.stock <= 0 ? 'Out of stock' : p.stock + ' in stock') + '</div></div>';
@@ -321,7 +342,7 @@
               '<button class="qtybtn" data-inc="' + i + '">+</button>' +
               '<button class="qtybtn" data-rm="' + i + '" style="color:var(--destructive)">✕</button></div>';
           }).join('') : '<p class="empty">Cart is empty</p>';
-          var body = '<div class="cart"><h2>🧾 Cart</h2>' + items +
+          var body = '<div class="cart"><h2>' + icon('receipt') + 'Cart</h2>' + items +
             '<div style="display:flex;gap:8px;margin:12px 0">' +
               '<button class="chip ' + (state.discType === 'flat' ? 'active' : '') + '" data-dt="flat">Flat</button>' +
               '<button class="chip ' + (state.discType === 'pct' ? 'active' : '') + '" data-dt="pct">%</button>' +
@@ -559,7 +580,7 @@
   // ---- Categories -----------------------------------------------------------
   VIEWS.categories = function () {
     return {
-      html: '<div class="view-head"><button class="icon-btn" data-go3="inventory">←</button><h1>Categories</h1></div>' +
+      html: '<div class="view-head"><button class="icon-btn" data-go3="inventory" title="Back">' + icon('arrow-left') + '</button><h1>Categories</h1></div>' +
         '<div class="card"><div style="display:flex;gap:8px"><input class="input" id="newCat" placeholder="New category name">' +
         '<button class="btn btn-primary" id="addCat">Add</button></div></div><div id="catList" style="margin-top:16px"></div>',
       mount: function () {
