@@ -88,6 +88,37 @@ function apiSaveProduct(token, p) {
   });
 }
 
+/** Add many products at once (bulk import). Blank-name rows are skipped. */
+function apiBulkSaveProducts(token, list) {
+  requireRole_(token, ['owner', 'manager']);
+  list = list || [];
+  if (!list.length) throw new Error('Nothing to add.');
+  return withLock(function () {
+    var def = Number(readSettings_().lowStockDefault) || 5;
+    var count = 0;
+    list.forEach(function (p) {
+      var name = String(p.name || '').trim();
+      if (!name) return;
+      var row = {
+        id: uuid_(), name: name, sku: String(p.sku || '').trim() || nextProductSku_(),
+        barcode: p.barcode || '', category: p.category || '', location: p.location || '',
+        cost: Number(p.cost) || 0, price: Number(p.price) || 0, stock: Number(p.stock) || 0,
+        lowStock: Number(p.lowStock) || def, serials: p.serials || '', imageUrl: p.imageUrl || '',
+        createdAt: now_(), updatedAt: now_()
+      };
+      appendRow('Products', row);
+      if (row.stock > 0) {
+        appendRow('StockMovements', {
+          id: uuid_(), date: now_(), productId: row.id, productName: row.name,
+          change: row.stock, reason: 'new', ref: '', note: 'Bulk add'
+        });
+      }
+      count++;
+    });
+    return { ok: true, count: count };
+  });
+}
+
 function apiDeleteProduct(token, id) {
   requireRole_(token, ['owner', 'manager']);
   withLock(function () { deleteRow('Products', id); });

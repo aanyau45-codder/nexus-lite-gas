@@ -269,6 +269,9 @@ textarea.input { height:auto; padding:10px 12px; min-height:72px; }
 .cart-item { display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px dashed var(--border); }
 .cart-item .ci-name { font-size:.88rem; font-weight:500; }
 .cart-item .ci-price { font-family:var(--font-mono); font-size:.76rem; color:var(--muted-foreground); }
+.ci-price-wrap { display:flex; align-items:center; gap:5px; margin-top:4px; }
+.ci-cur { font-family:var(--font-mono); font-size:.72rem; color:var(--muted-foreground); }
+.ci-price-in { width:108px; height:30px; padding:0 8px; font-size:.82rem; }
 .qtybtn { width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--muted);
   cursor:pointer; font-size:16px; line-height:1; color:inherit; }
 .qtybtn:hover { border-color:var(--primary); }

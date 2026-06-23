@@ -17,7 +17,10 @@ function apiCreateSale(token, draft) {
       if (!p) throw new Error('A product in the cart no longer exists. Refresh and try again.');
       var qty = Math.floor(Number(it.qty) || 0);
       if (qty <= 0) throw new Error('Invalid quantity for ' + (p.name || 'an item') + '.');
-      var price = Number(p.price) || 0;          // SERVER price — ignore client price
+      // Price defaults to the product price, but POS allows an overridden unit
+      // price (negotiation — higher or lower). Clamped to >= 0.
+      var price = (it.price != null && it.price !== '' && Number(it.price) >= 0)
+        ? Number(it.price) : (Number(p.price) || 0);
       var sub = price * qty;
       itemsSubtotal += sub;
       lines.push({ product: p, qty: qty, price: price, sub: sub });

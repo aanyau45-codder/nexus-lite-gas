@@ -95,6 +95,31 @@ function apiAddExpense(token, exp) {
   return { ok: true, balance: cashBalance_() };
 }
 
+/** Add many expenses at once (each logs an Expenses row + a cash outflow). */
+function apiBulkAddExpenses(token, list) {
+  var u = requireRole_(token, ['owner', 'manager']);
+  list = list || [];
+  if (!list.length) throw new Error('Nothing to add.');
+  return withLock(function () {
+    var count = 0;
+    list.forEach(function (e) {
+      var amount = Number(e.amount) || 0;
+      if (amount <= 0) return;
+      var id = uuid_(), date = now_();
+      appendRow('Expenses', {
+        id: id, date: date, category: e.category || 'General',
+        amount: amount, note: e.note || '', recordedBy: u.name || u.username
+      });
+      cashEntry_({
+        type: 'expense', direction: 'out', amount: amount, refType: 'expense', refId: id,
+        note: e.note || e.category || 'Expense', recordedBy: u.name || u.username, date: date
+      });
+      count++;
+    });
+    return { ok: true, count: count, balance: cashBalance_() };
+  });
+}
+
 function apiGetExpenses(token, opts) {
   requireUser_(token);
   opts = opts || {};

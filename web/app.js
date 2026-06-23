@@ -382,7 +382,8 @@
           var t = totals();
           var items = state.cart.length ? state.cart.map(function (c, i) {
             return '<div class="cart-item"><div style="flex:1"><div class="ci-name">' + esc(c.name) + '</div>' +
-              '<div class="ci-price">' + money(c.price) + '</div></div>' +
+              '<div class="ci-price-wrap"><span class="ci-cur">' + esc(cur()) + '</span>' +
+              '<input class="input ci-price-in num" type="number" min="0" data-price="' + i + '" value="' + c.price + '" title="Unit price — editable"></div></div>' +
               '<button class="qtybtn" data-dec="' + i + '">−</button>' +
               '<span class="num" style="min-width:24px;text-align:center">' + c.qty + '</span>' +
               '<button class="qtybtn" data-inc="' + i + '">+</button>' +
@@ -406,6 +407,7 @@
           $all('[data-inc]').forEach(function (b) { b.addEventListener('click', function () { var c = state.cart[+b.getAttribute('data-inc')]; if (c.qty < c.stock) c.qty++; else toast('Max stock', true); drawCart(); }); });
           $all('[data-dec]').forEach(function (b) { b.addEventListener('click', function () { var i = +b.getAttribute('data-dec'); state.cart[i].qty--; if (state.cart[i].qty <= 0) state.cart.splice(i, 1); drawCart(); }); });
           $all('[data-rm]').forEach(function (b) { b.addEventListener('click', function () { state.cart.splice(+b.getAttribute('data-rm'), 1); drawCart(); }); });
+          $all('[data-price]').forEach(function (b) { b.addEventListener('change', function () { state.cart[+b.getAttribute('data-price')].price = Math.max(0, num(b.value)); drawCart(); }); });
           $all('[data-dt]').forEach(function (b) { b.addEventListener('click', function () { state.discType = b.getAttribute('data-dt'); drawCart(); }); });
           var di = $('#discIn'); if (di) di.addEventListener('input', function () { state.discVal = num(di.value); var ca = $('#chargeAmt'); if (ca) ca.textContent = money(totals().total); });
           var cb = $('#checkoutBtn'); if (cb) cb.addEventListener('click', checkout);
@@ -504,6 +506,7 @@
     return {
       html: '<div class="view-head"><h1>Stock</h1><div class="spacer"></div>' +
         '<button class="btn btn-ghost btn-sm" data-go2="categories">Categories</button>' +
+        '<button class="btn btn-ghost btn-sm" id="bulkProd">Bulk add</button>' +
         '<button class="btn btn-primary btn-sm" id="addProd">+ Add product</button></div>' +
         '<div class="toolbar">' +
           '<input class="input" id="invSearch" placeholder="Search…" style="max-width:280px" value="' + esc(state.invSearch) + '">' +
@@ -512,6 +515,7 @@
       mount: function () {
         $('[data-go2="categories"]').addEventListener('click', function () { go('categories'); });
         $('#addProd').addEventListener('click', function () { productModal(null); });
+        $('#bulkProd').addEventListener('click', bulkProductModal);
         $('#invSearch').addEventListener('input', function () { state.invSearch = this.value; drawList(); });
         $all('[data-f]').forEach(function (c) {
           c.classList.toggle('active', c.getAttribute('data-f') === state.invFilter);
@@ -674,6 +678,27 @@
   }
   function refreshProducts() { return api('apiGetProducts').then(function (ps) { state.products = ps; }); }
 
+  function bulkProductModal() {
+    modal('Bulk add products',
+      '<p class="muted" style="font-size:.82rem;margin-top:0">One product per line, comma or tab separated — paste straight from a spreadsheet:</p>' +
+      '<p class="muted" style="font-size:.78rem"><code>Name, Category, Buying price, Selling price, Stock, Re-order(optional)</code></p>' +
+      '<textarea class="input mono" id="bulkP" style="min-height:170px" placeholder="HP 650 Laptop, Laptops, 850000, 1100000, 5\nUSB-C Cable, Accessories, 3000, 8000, 50"></textarea>' +
+      '<p class="muted" style="font-size:.72rem;margin-top:6px">SKUs (PRD###) are generated automatically.</p>' +
+      '<button class="btn btn-primary btn-block" id="bulkPSave" style="margin-top:6px">Add products</button>', function () {
+        $('#bulkPSave').addEventListener('click', function () {
+          var list = $('#bulkP').value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).map(function (l) {
+            var p = l.split(/\t|,/).map(function (x) { return x.trim(); });
+            return { name: p[0], category: p[1] || '', cost: num(p[2]), price: num(p[3]), stock: num(p[4]), lowStock: num(p[5]) };
+          }).filter(function (p) { return p.name; });
+          if (!list.length) { toast('Paste at least one row', true); return; }
+          var btn = $('#bulkPSave'); btn.disabled = true; btn.textContent = 'Adding…';
+          api('apiBulkSaveProducts', state.token, list).then(function (r) { return refreshProducts().then(function () { return r; }); })
+            .then(function (r) { closeModal(); toast('Added ' + r.count + ' products'); if (window.__invDraw) window.__invDraw(); })
+            .catch(function (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Add products'; });
+        });
+      });
+  }
+
   // ---- Categories -----------------------------------------------------------
   VIEWS.categories = function () {
     return {
@@ -741,12 +766,14 @@
   VIEWS.cash = function () {
     return {
       html: '<div class="view-head"><h1>Cash</h1><div class="spacer"></div>' +
+        '<button class="btn btn-ghost btn-sm" id="bulkExpense">Bulk expenses</button>' +
         '<button class="btn btn-ghost btn-sm" id="addExpense">' + icon('minus') + ' Expense</button>' +
         '<button class="btn btn-primary btn-sm" id="addIncome">' + icon('plus') + ' Add money</button></div>' +
         '<div id="cashTop"></div><div id="cashList" style="margin-top:16px"><div class="empty">Loading…</div></div>',
       mount: function () {
         $('#addIncome').addEventListener('click', incomeModal);
         $('#addExpense').addEventListener('click', expenseModal);
+        $('#bulkExpense').addEventListener('click', bulkExpenseModal);
         function load() {
           api('apiGetCashFlow', state.token, { limit: 200 }).then(function (r) {
             $('#cashTop').innerHTML =
@@ -800,6 +827,26 @@
           api('apiAddExpense', state.token, { category: $('#ce_cat').value.trim() || 'General', amount: amt, note: $('#ce_note').value.trim() })
             .then(function () { closeModal(); toast('Recorded'); if (window.__cashLoad) window.__cashLoad(); })
             .catch(function (e) { toast(e.message, true); });
+        });
+      });
+  }
+
+  function bulkExpenseModal() {
+    modal('Bulk add expenses',
+      '<p class="muted" style="font-size:.82rem;margin-top:0">One expense per line, comma or tab separated:</p>' +
+      '<p class="muted" style="font-size:.78rem"><code>Category, Amount, Note(optional)</code></p>' +
+      '<textarea class="input mono" id="bulkE" style="min-height:150px" placeholder="Rent, 300000, June\nTransport, 15000\nAirtime, 20000, MTN"></textarea>' +
+      '<button class="btn btn-primary btn-block" id="bulkESave" style="margin-top:8px">Add expenses</button>', function () {
+        $('#bulkESave').addEventListener('click', function () {
+          var list = $('#bulkE').value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).map(function (l) {
+            var p = l.split(/\t|,/).map(function (x) { return x.trim(); });
+            return { category: p[0] || 'General', amount: num(p[1]), note: p[2] || '' };
+          }).filter(function (e) { return e.amount > 0; });
+          if (!list.length) { toast('Paste at least one row with an amount', true); return; }
+          var btn = $('#bulkESave'); btn.disabled = true; btn.textContent = 'Adding…';
+          api('apiBulkAddExpenses', state.token, list)
+            .then(function (r) { closeModal(); toast('Added ' + r.count + ' expenses'); if (window.__cashLoad) window.__cashLoad(); })
+            .catch(function (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Add expenses'; });
         });
       });
   }
