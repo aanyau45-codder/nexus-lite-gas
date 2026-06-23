@@ -4,10 +4,20 @@ function normalizeProduct_(p) {
   if (!p) return null;
   return {
     id: p.id, name: p.name, sku: p.sku || '', barcode: String(p.barcode || ''),
-    category: p.category || '', cost: Number(p.cost) || 0, price: Number(p.price) || 0,
-    stock: Number(p.stock) || 0, lowStock: Number(p.lowStock) || 0,
-    imageUrl: p.imageUrl || '', createdAt: p.createdAt, updatedAt: p.updatedAt
+    category: p.category || '', location: p.location || '', cost: Number(p.cost) || 0,
+    price: Number(p.price) || 0, stock: Number(p.stock) || 0, lowStock: Number(p.lowStock) || 0,
+    serials: p.serials || '', imageUrl: p.imageUrl || '', createdAt: p.createdAt, updatedAt: p.updatedAt
   };
+}
+
+/** Next auto SKU like PRD001, based on the highest existing PRD#### code. */
+function nextProductSku_() {
+  var max = 0;
+  getTable('Products').forEach(function (p) {
+    var m = /^PRD(\d+)$/i.exec(String(p.sku || '').trim());
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return 'PRD' + ('000' + (max + 1)).slice(-3);
 }
 
 function apiGetProducts() {
@@ -46,8 +56,9 @@ function apiSaveProduct(token, p) {
       var before = getById('Products', p.id);
       updateRow('Products', p.id, {
         name: p.name, sku: p.sku || '', barcode: p.barcode || '', category: p.category || '',
-        cost: Number(p.cost) || 0, price: Number(p.price) || 0, stock: Number(p.stock) || 0,
-        lowStock: Number(p.lowStock) || 0, imageUrl: p.imageUrl || '', updatedAt: now_()
+        location: p.location || '', cost: Number(p.cost) || 0, price: Number(p.price) || 0,
+        stock: Number(p.stock) || 0, lowStock: Number(p.lowStock) || 0,
+        serials: p.serials || '', imageUrl: p.imageUrl || '', updatedAt: now_()
       });
       var after = getById('Products', p.id);
       if (before && Number(before.stock) !== Number(after.stock)) {
@@ -60,9 +71,11 @@ function apiSaveProduct(token, p) {
     }
     var def = Number(readSettings_().lowStockDefault) || 5;
     var row = {
-      id: uuid_(), name: p.name, sku: p.sku || '', barcode: p.barcode || '', category: p.category || '',
+      id: uuid_(), name: p.name, sku: String(p.sku || '').trim() || nextProductSku_(),
+      barcode: p.barcode || '', category: p.category || '', location: p.location || '',
       cost: Number(p.cost) || 0, price: Number(p.price) || 0, stock: Number(p.stock) || 0,
-      lowStock: Number(p.lowStock) || def, imageUrl: p.imageUrl || '', createdAt: now_(), updatedAt: now_()
+      lowStock: Number(p.lowStock) || def, serials: p.serials || '', imageUrl: p.imageUrl || '',
+      createdAt: now_(), updatedAt: now_()
     };
     appendRow('Products', row);
     if (row.stock > 0) {

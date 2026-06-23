@@ -6,45 +6,45 @@
 
 :root {
   /* surfaces */
-  --background:#F6F7F6; --card:#FFFFFF; --popover:#FFFFFF; --muted:#EAEDE9;
+  --background:#f8fafc; --card:#ffffff; --popover:#ffffff; --muted:#f3f4f6;
   /* ink */
-  --foreground:#16201C; --card-foreground:#16201C; --popover-foreground:#16201C;
-  --muted-foreground:#5C6B63;
-  /* brand */
-  --primary:#0E6E4E; --primary-foreground:#FFFFFF; --primary-strong:#0A553D;
-  --accent:#F4E4C4; --accent-foreground:#5A3F0B; --accent-solid:#E0A33E;
+  --foreground:#1e293b; --card-foreground:#1e293b; --popover-foreground:#1e293b;
+  --muted-foreground:#6b7280;
+  /* brand (indigo) */
+  --primary:#6366f1; --primary-foreground:#ffffff; --primary-strong:#4f46e5;
+  --accent:#e0e7ff; --accent-foreground:#3730a3; --accent-solid:#f59e0b;
   /* lines + controls */
-  --border:#DCE1DA; --input:#C9D0CA; --ring:#0E6E4E;
-  --secondary:#E7ECE7; --secondary-foreground:#1E2B25;
+  --border:#e2e8f0; --input:#d1d5db; --ring:#6366f1;
+  --secondary:#eceef3; --secondary-foreground:#334155;
   /* status */
-  --destructive:#C0362C; --destructive-foreground:#FFFFFF;
-  --success:#0E6E4E; --warning:#B9791F;
-  /* sidebar — a deep ink-green slab; the signature anchor */
-  --sidebar:#11261E; --sidebar-foreground:#C3D2C8; --sidebar-muted:#7E9389;
-  --sidebar-border:#1E3A2D; --sidebar-hover:rgba(255,255,255,.07);
-  --sidebar-active:#0E6E4E; --sidebar-active-foreground:#FFFFFF;
+  --destructive:#ef4444; --destructive-foreground:#ffffff;
+  --success:#16a34a; --warning:#d97706;
+  /* sidebar — light slab, indigo active pill */
+  --sidebar:#f5f6fa; --sidebar-foreground:#334155; --sidebar-muted:#94a3b8;
+  --sidebar-border:#e5e7eb; --sidebar-hover:rgba(99,102,241,.10);
+  --sidebar-active:#6366f1; --sidebar-active-foreground:#ffffff;
   /* charts */
-  --chart-1:#0E6E4E; --chart-2:#2E8B63; --chart-3:#62A985; --chart-4:#E0A33E; --chart-5:#B9791F;
+  --chart-1:#6366f1; --chart-2:#4f46e5; --chart-3:#4338ca; --chart-4:#818cf8; --chart-5:#a5b4fc;
   /* shape + type */
-  --radius:10px; --shadow-opacity:.07;
+  --radius:10px; --shadow-opacity:.06;
   --font-sans:"Inter",system-ui,sans-serif;
   --font-display:"Space Grotesk","Inter",sans-serif;
   --font-mono:"JetBrains Mono",ui-monospace,monospace;
 }
 .dark {
-  --background:#0C1411; --card:#13201B; --popover:#16241D; --muted:#16241D;
-  --foreground:#E6EDE9; --card-foreground:#E6EDE9; --popover-foreground:#E6EDE9;
-  --muted-foreground:#94A89D;
-  --primary:#36C28C; --primary-foreground:#06140E; --primary-strong:#2AA877;
-  --accent:#2E2616; --accent-foreground:#F0CE86; --accent-solid:#E8B45A;
-  --border:#22382C; --input:#2A4034; --ring:#36C28C;
-  --secondary:#1B2A22; --secondary-foreground:#D6E2DA;
-  --destructive:#E5675C; --destructive-foreground:#1A0B09;
-  --success:#36C28C; --warning:#E8B45A;
-  --sidebar:#0A120E; --sidebar-foreground:#B6C6BC; --sidebar-muted:#6E837A;
-  --sidebar-border:#1A2C22; --sidebar-hover:rgba(255,255,255,.05);
-  --sidebar-active:#0E6E4E; --sidebar-active-foreground:#FFFFFF;
-  --chart-1:#36C28C; --chart-2:#2AA877; --chart-3:#62A985; --chart-4:#E8B45A; --chart-5:#C79A4A;
+  --background:#0f172a; --card:#1e293b; --popover:#1e293b; --muted:#172033;
+  --foreground:#e2e8f0; --card-foreground:#e2e8f0; --popover-foreground:#e2e8f0;
+  --muted-foreground:#9ca3af;
+  --primary:#818cf8; --primary-foreground:#0f172a; --primary-strong:#6366f1;
+  --accent:#374151; --accent-foreground:#c7d2fe; --accent-solid:#f59e0b;
+  --border:#334155; --input:#4b5563; --ring:#818cf8;
+  --secondary:#334155; --secondary-foreground:#e2e8f0;
+  --destructive:#ef4444; --destructive-foreground:#0f172a;
+  --success:#22c55e; --warning:#f59e0b;
+  --sidebar:#111827; --sidebar-foreground:#cbd5e1; --sidebar-muted:#64748b;
+  --sidebar-border:#1f2937; --sidebar-hover:rgba(255,255,255,.06);
+  --sidebar-active:#6366f1; --sidebar-active-foreground:#ffffff;
+  --chart-1:#818cf8; --chart-2:#6366f1; --chart-3:#a5b4fc; --chart-4:#4f46e5; --chart-5:#c7d2fe;
   --shadow-opacity:.4;
 }
 
@@ -208,13 +208,13 @@ textarea.input { height:auto; padding:10px 12px; min-height:72px; }
 
 /* sidebar nav ------------------------------------------------------------- */
 .brand { display:flex; align-items:center; gap:11px; padding:20px 18px; font-family:var(--font-display);
-  font-weight:700; color:#fff; letter-spacing:-.01em; }
+  font-weight:700; color:var(--sidebar-foreground); letter-spacing:-.01em; }
 .brand-mark { width:34px; height:34px; display:grid; place-items:center; border-radius:9px;
   background:var(--primary); color:#fff; font-size:18px; }
 .nav { display:flex; flex-direction:column; gap:3px; padding:6px 12px; }
 .nav-item { display:flex; align-items:center; gap:12px; padding:11px 13px; border-radius:9px;
   color:var(--sidebar-foreground); font-weight:500; cursor:pointer; transition:background .12s, color .12s; }
-.nav-item:hover { background:var(--sidebar-hover); color:#fff; }
+.nav-item:hover { background:var(--sidebar-hover); color:var(--foreground); }
 .nav-item.active { background:var(--sidebar-active); color:var(--sidebar-active-foreground); font-weight:600; }
 .nav-ico { width:22px; text-align:center; font-size:17px; }
 .side-foot { margin-top:auto; padding:16px 18px; font-size:.72rem; color:var(--sidebar-muted);
@@ -323,6 +323,27 @@ textarea.input { height:auto; padding:10px 12px; min-height:72px; }
   max-height:240px; overflow-y:auto; }
 .combo-opt { padding:10px 13px; cursor:pointer; font-size:.9rem; }
 .combo-opt:hover { background:var(--muted); }
+
+/* running-balance line chart */
+.line-chart { width:100%; height:150px; display:block; }
+.lc-area { fill:color-mix(in srgb,var(--primary) 13%,transparent); stroke:none; }
+.lc-line { fill:none; stroke:var(--primary); stroke-width:2; vector-effect:non-scaling-stroke;
+  stroke-linejoin:round; stroke-linecap:round; }
+.chart-foot { display:flex; justify-content:space-between; font-size:.66rem; color:var(--muted-foreground);
+  font-family:var(--font-mono); margin-top:6px; }
+
+/* cash ledger rows */
+.led { display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--border); }
+.led:last-child { border-bottom:0; }
+.led-ico { width:34px; height:34px; border-radius:9px; display:grid; place-items:center; flex:none;
+  background:color-mix(in srgb,var(--success) 14%,transparent); color:var(--success); }
+.led-ico.out { background:color-mix(in srgb,var(--destructive) 14%,transparent); color:var(--destructive); }
+.led-amt { font-family:var(--font-display); font-variant-numeric:tabular-nums; font-weight:600; }
+.led-amt.in { color:var(--success); }
+.led-amt.out { color:var(--destructive); }
+
+/* receipt logo */
+.r-logo { display:block; max-width:120px; max-height:64px; margin:0 auto 8px; object-fit:contain; }
 
 /* receipt — full receipt-tape treatment */
 #receipt { font-family:var(--font-mono); font-size:.84rem; background:var(--card);

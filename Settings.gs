@@ -7,10 +7,11 @@ function apiSaveSettings(token, patch) {
   return withLock(function () {
     var clean = {};
     ['businessName', 'currency', 'phone', 'address', 'vatEnabled', 'vatRate',
-     'lowStockDefault', 'receiptFooter', 'logoUrl', 'theme'].forEach(function (k) {
+     'lowStockDefault', 'receiptFooter', 'logoUrl', 'theme', 'hasStore'].forEach(function (k) {
       if (patch[k] !== undefined) clean[k] = patch[k];
     });
     if (clean.vatEnabled !== undefined) clean.vatEnabled = truthy_(clean.vatEnabled);
+    if (clean.hasStore !== undefined) clean.hasStore = truthy_(clean.hasStore);
     writeSettingsRow_(clean);
     return readSettings_();
   });

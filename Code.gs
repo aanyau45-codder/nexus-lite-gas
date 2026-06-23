@@ -25,10 +25,11 @@ function apiPing() {
 /** What the SPA loads on boot (before login). Seeds the DB on first run. */
 function apiBootstrap() {
   ensureSeed();
-  var s = readSettings_();
+  // Return the full settings (no secrets here) so the client has currency, VAT,
+  // logo, hasStore, etc. available before login.
   return {
     ok: true,
-    settings: { businessName: s.businessName, currency: s.currency, logoUrl: s.logoUrl, theme: s.theme },
-    version: '1.0'
+    settings: readSettings_(),
+    version: '1.1'
   };
 }

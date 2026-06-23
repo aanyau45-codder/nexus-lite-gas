@@ -4,27 +4,41 @@
  * also seeds lazily so the app is never empty.
  */
 var SCHEMA = {
-  Settings:       ['businessName', 'currency', 'phone', 'address', 'vatEnabled', 'vatRate', 'lowStockDefault', 'receiptFooter', 'logoUrl', 'theme'],
+  Settings:       ['businessName', 'currency', 'phone', 'address', 'vatEnabled', 'vatRate', 'lowStockDefault', 'receiptFooter', 'logoUrl', 'theme', 'hasStore'],
   Users:          ['id', 'name', 'username', 'email', 'passwordHash', 'role', 'active', 'createdAt'],
   Categories:     ['id', 'name', 'createdAt'],
-  Products:       ['id', 'name', 'sku', 'barcode', 'category', 'cost', 'price', 'stock', 'lowStock', 'imageUrl', 'createdAt', 'updatedAt'],
+  Products:       ['id', 'name', 'sku', 'barcode', 'category', 'location', 'cost', 'price', 'stock', 'lowStock', 'serials', 'imageUrl', 'createdAt', 'updatedAt'],
   Customers:      ['id', 'name', 'phone', 'email', 'address', 'createdAt'],
   Sales:          ['id', 'ref', 'date', 'customerId', 'customerName', 'itemsSubtotal', 'discount', 'tax', 'total', 'paymentMethod', 'amountPaid', 'changeDue', 'cashier'],
   SaleItems:      ['id', 'saleId', 'productId', 'name', 'sku', 'price', 'qty', 'subtotal'],
   StockMovements: ['id', 'date', 'productId', 'productName', 'change', 'reason', 'ref', 'note'],
-  Expenses:       ['id', 'date', 'category', 'amount', 'note', 'recordedBy']
+  Expenses:       ['id', 'date', 'category', 'amount', 'note', 'recordedBy'],
+  CashFlow:       ['id', 'date', 'type', 'direction', 'amount', 'method', 'refType', 'refId', 'note', 'recordedBy']
 };
 
-/** Create any missing tabs and write their header rows. Safe to re-run. */
+/**
+ * Create any missing tabs, write their header rows, and add any columns that are
+ * in SCHEMA but not yet in an existing tab (so the schema can evolve safely).
+ * Safe to re-run.
+ */
 function setupSheet() {
   var ss = ss_();
   Object.keys(SCHEMA).forEach(function (name) {
     var sh = ss.getSheetByName(name) || ss.insertSheet(name);
     var headers = SCHEMA[name];
-    var firstRow = sh.getRange(1, 1, 1, headers.length).getValues()[0];
+    var lastCol = sh.getLastColumn();
+    var firstRow = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0] : [];
     if (firstRow.join('') === '') {
       sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
       sh.setFrozenRows(1);
+    } else {
+      // schema evolution: append any headers not already present
+      var existing = firstRow.map(function (h) { return String(h); });
+      var missing = headers.filter(function (h) { return existing.indexOf(h) < 0; });
+      if (missing.length) {
+        sh.getRange(1, existing.length + 1, 1, missing.length)
+          .setValues([missing]).setFontWeight('bold');
+      }
     }
   });
   var def = ss.getSheetByName('Sheet1');
@@ -59,6 +73,7 @@ function readSettings_() {
   };
   // normalise types for the client
   s.vatEnabled = truthy_(s.vatEnabled);
+  s.hasStore = truthy_(s.hasStore);
   s.vatRate = Number(s.vatRate) || 0;
   s.lowStockDefault = Number(s.lowStockDefault) || 5;
   return s;

@@ -36,7 +36,10 @@
     moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
     'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
     'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
-    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>'
+    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    minus: '<path d="M5 12h14"/>',
+    wallet: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',
+    'trending-up': '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>'
   };
   function icon(name) {
     return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
@@ -115,6 +118,7 @@
     { id: 'pos', label: 'POS', icon: 'shopping-cart' },
     { id: 'inventory', label: 'Stock', icon: 'package' },
     { id: 'sales', label: 'Sales', icon: 'receipt' },
+    { id: 'cash', label: 'Cash', icon: 'wallet' },
     { id: 'customers', label: 'Customers', icon: 'users' },
     { id: 'reports', label: 'Reports', icon: 'bar-chart' },
     { id: 'settings', label: 'Settings', icon: 'settings' }
@@ -256,15 +260,33 @@
     return {
       html: '<div class="view-head"><h1>Home</h1></div><div id="dash"><div class="empty">Loading…</div></div>',
       mount: function () {
+        var finance = state.user.role === 'owner' || state.user.role === 'manager';
         api('apiDashboard', state.token).then(function (d) {
-          var hero = '<div class="card hero"><div class="stat-label">Today’s sales</div>' +
-            '<div class="hero-money"><span class="hero-cur">' + esc(cur()) + '</span>' +
-              '<span class="hero-amt">' + fmtNum(d.todayTotal) + '</span></div>' +
-            '<div class="hero-sub">' +
-              '<div>Sales today<strong>' + d.todayCount + '</strong></div>' +
-              '<div>Low / Out<strong>' + d.lowCount + ' / ' + d.outCount + '</strong></div>' +
-              '<div>Stock value<strong>' + money(d.stockValue) + '</strong></div></div></div>';
-          var bars = d.byDay.length ? '<div class="card" style="margin-top:16px"><h2>Last 7 days</h2><div class="bars">' +
+          var hero;
+          if (finance) {
+            hero = '<div class="card hero"><div class="stat-label">Cash in hand</div>' +
+              '<div class="hero-money"><span class="hero-cur">' + esc(cur()) + '</span>' +
+                '<span class="hero-amt">' + fmtNum(d.cashBalance) + '</span></div>' +
+              '<div class="hero-sub">' +
+                '<div>Today’s sales<strong>' + money(d.todayTotal) + '</strong></div>' +
+                '<div>Sales today<strong>' + d.todayCount + '</strong></div>' +
+                '<div>Low / Out<strong>' + d.lowCount + ' / ' + d.outCount + '</strong></div></div></div>';
+          } else {
+            hero = '<div class="card hero"><div class="stat-label">Today’s sales</div>' +
+              '<div class="hero-money"><span class="hero-cur">' + esc(cur()) + '</span>' +
+                '<span class="hero-amt">' + fmtNum(d.todayTotal) + '</span></div>' +
+              '<div class="hero-sub"><div>Sales today<strong>' + d.todayCount + '</strong></div>' +
+                '<div>Low / Out<strong>' + d.lowCount + ' / ' + d.outCount + '</strong></div></div></div>';
+          }
+          var cards = finance ? '<div class="stat-grid" style="margin-top:16px">' +
+            statCard('Inventory value', money(d.stockValue)) +
+            statCard('Money due to you', money(d.receivables), 'amber') +
+            statCard('You owe (payables)', money(d.payables), 'red') +
+            statCard('Stock at cost', money(d.inventoryCost)) + '</div>' : '';
+          var graph = (finance && d.cashSeries && d.cashSeries.length) ?
+            '<div class="card" style="margin-top:16px"><h2>Running balance · 30 days</h2>' +
+            lineChart(d.cashSeries) + '</div>' : '';
+          var bars = d.byDay.length ? '<div class="card" style="margin-top:16px"><h2>Last 7 days sales</h2><div class="bars">' +
             barChart(d.byDay) + '</div></div>' : '';
           var recent = '<div class="card" style="margin-top:16px"><h2>Recent sales</h2>' + (d.recent.length ?
             d.recent.map(function (s) {
@@ -272,7 +294,7 @@
                 '<span class="muted" style="font-size:.78rem">' + dt(s.date) + '</span></div>' +
                 '<strong class="num">' + money(s.total) + '</strong></div>';
             }).join('') : '<p class="muted">No sales yet.</p>') + '</div>';
-          $('#dash').innerHTML = hero + bars + recent;
+          $('#dash').innerHTML = hero + cards + graph + bars + recent;
         }).catch(function (e) { $('#dash').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
       }
     };
@@ -288,6 +310,30 @@
       return '<div class="bar-col"><div class="bar" style="height:' + h + '%"></div>' +
         '<div class="bar-lbl">' + esc(d.day.slice(5)) + '</div></div>';
     }).join('');
+  }
+  function lineChart(series) {
+    if (!series || series.length < 2) return '<div class="empty">Not enough data yet.</div>';
+    var w = 640, h = 150, pad = 8, n = series.length;
+    var vals = series.map(function (p) { return Number(p.balance) || 0; });
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    if (min > 0) min = 0;                  // anchor baseline at zero when all positive
+    if (min === max) max = min + 1;
+    var range = max - min;
+    var coords = series.map(function (p, i) {
+      return {
+        x: pad + (i / (n - 1)) * (w - 2 * pad),
+        y: pad + (1 - ((Number(p.balance) || 0) - min) / range) * (h - 2 * pad)
+      };
+    });
+    var poly = coords.map(function (c) { return c.x.toFixed(1) + ',' + c.y.toFixed(1); }).join(' ');
+    var area = 'M ' + coords[0].x.toFixed(1) + ',' + (h - pad).toFixed(1) +
+      coords.map(function (c) { return ' L ' + c.x.toFixed(1) + ',' + c.y.toFixed(1); }).join('') +
+      ' L ' + coords[n - 1].x.toFixed(1) + ',' + (h - pad).toFixed(1) + ' Z';
+    return '<svg class="line-chart" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+      '<path class="lc-area" d="' + area + '"/><polyline class="lc-line" points="' + poly + '"/></svg>' +
+      '<div class="chart-foot"><span>' + esc(series[0].day.slice(5)) + '</span>' +
+      '<span>now: ' + money(series[n - 1].balance) + '</span>' +
+      '<span>' + esc(series[n - 1].day.slice(5)) + '</span></div>';
   }
 
   // ---- POS ------------------------------------------------------------------
@@ -369,18 +415,32 @@
           modal('Complete sale',
             '<div class="row"><strong>Total</strong><strong class="num">' + money(t.total) + '</strong></div>' +
             '<div class="field"><label class="label">Payment method</label><select class="input" id="pm">' +
-              '<option>Cash</option><option>Mobile Money</option><option>Card</option></select></div>' +
+              '<option>Cash</option><option>Mobile Money</option><option>Card</option><option>Credit</option></select></div>' +
+            '<div class="field"><label class="label">Customer (for credit / receipt)</label><input class="input" id="custName" placeholder="Optional"></div>' +
             '<div class="field"><label class="label">Amount paid</label><input class="input num" id="paid" type="number" value="' + t.total + '"></div>' +
-            '<div class="row"><span class="muted">Change</span><strong class="num" id="chg">' + money(0) + '</strong></div>' +
+            '<div class="row"><span class="muted" id="balLbl">Change</span><strong class="num" id="chg">' + money(0) + '</strong></div>' +
             '<button class="btn btn-primary btn-block" id="doSale" style="margin-top:12px">Complete sale</button>',
             function () {
-              $('#paid').addEventListener('input', function () { $('#chg').textContent = money(Math.max(0, num($('#paid').value) - t.total)); });
+              function recompute() {
+                var diff = num($('#paid').value) - t.total;
+                if (diff >= 0) {
+                  $('#balLbl').textContent = 'Change'; $('#chg').textContent = money(diff); $('#chg').style.color = '';
+                } else {
+                  $('#balLbl').textContent = 'Balance due (credit)'; $('#chg').textContent = money(-diff);
+                  $('#chg').style.color = 'var(--destructive)';
+                }
+              }
+              $('#paid').addEventListener('input', recompute);
+              $('#pm').addEventListener('change', function () {
+                $('#paid').value = this.value === 'Credit' ? 0 : t.total; recompute();
+              });
               $('#doSale').addEventListener('click', function () {
                 var btn = $('#doSale'); btn.disabled = true; btn.textContent = 'Saving…';
                 var draft = {
                   items: state.cart.map(function (c) { return { productId: c.productId, qty: c.qty }; }),
                   discount: num(state.discVal), discountType: state.discType,
-                  paymentMethod: $('#pm').value, amountPaid: num($('#paid').value)
+                  paymentMethod: $('#pm').value, amountPaid: num($('#paid').value),
+                  customerName: $('#custName').value.trim()
                 };
                 api('apiCreateSale', state.token, draft).then(function (res) {
                   state.cart = []; state.discVal = 0;
@@ -400,7 +460,9 @@
 
   function renderReceiptModal(data) {
     var s = data.sale, items = data.items, set = state.settings;
+    var bal = (Number(s.total) || 0) - (Number(s.amountPaid) || 0);
     var html = '<div id="receipt">' +
+      (set.logoUrl ? '<img class="r-logo" src="' + esc(set.logoUrl) + '" alt="">' : '') +
       '<div class="r-center"><div class="r-biz">' + esc(set.businessName) + '</div>' +
         (set.phone ? esc(set.phone) + '<br>' : '') + (set.address ? esc(set.address) : '') + '</div>' +
       '<div class="r-rule"></div>' +
@@ -414,7 +476,8 @@
       (num(s.tax) ? '<div class="r-line"><span>VAT</span><span>' + money(s.tax) + '</span></div>' : '') +
       '<div class="r-line"><strong>Total</strong><strong>' + money(s.total) + '</strong></div>' +
       '<div class="r-line"><span>Paid (' + esc(s.paymentMethod) + ')</span><span>' + money(s.amountPaid) + '</span></div>' +
-      '<div class="r-line"><span>Change</span><span>' + money(s.changeDue) + '</span></div>' +
+      (bal > 0 ? '<div class="r-line"><strong>Balance due</strong><strong>' + money(bal) + '</strong></div>'
+               : '<div class="r-line"><span>Change</span><span>' + money(s.changeDue) + '</span></div>') +
       '<div class="r-rule"></div>' +
       '<div class="r-center muted">' + esc(set.receiptFooter || '') + '</div></div>';
     modal('Receipt', html + '<div style="display:flex;gap:8px;margin-top:16px">' +
@@ -493,28 +556,62 @@
     };
   };
 
+  // Next auto SKU (PRD###) from the products already loaded; editable in the form.
+  function nextSku() {
+    var max = 0;
+    state.products.forEach(function (p) {
+      var m = /^PRD(\d+)$/i.exec(String(p.sku || '').trim());
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    });
+    return 'PRD' + ('000' + (max + 1)).slice(-3);
+  }
+
   function productModal(p) {
-    var isEdit = !!p; p = p || { name: '', sku: '', barcode: '', category: '', cost: 0, price: 0, stock: 0, lowStock: '', imageUrl: '' };
+    var isEdit = !!p;
+    p = p || { name: '', sku: '', barcode: '', category: '', location: '', cost: 0, price: 0, stock: 0, lowStock: '', serials: '', imageUrl: '' };
+    var skuVal = isEdit ? (p.sku || '') : nextSku();
+    var hasStore = !!state.settings.hasStore;
     var body =
+      '<div class="field"><label class="label">SKU</label><input class="input mono" id="f_sku" value="' + esc(skuVal) + '">' +
+        '<div class="muted" style="font-size:.72rem;margin-top:5px;display:flex;align-items:center;gap:4px">' + icon('plus') + 'Auto-generated — edit if you need to</div></div>' +
+      '<div class="field"><label class="label">Product name *</label><input class="input" id="f_name" value="' + esc(p.name) + '" placeholder="e.g. Samsung Galaxy S24, 128GB"></div>' +
+      '<div class="grid2">' +
+        '<div class="field"><label class="label">Category *</label><div class="combo" id="catCombo">' +
+          '<input class="input" id="f_cat" value="' + esc(p.category) + '" placeholder="Search or type…" autocomplete="off"></div></div>' +
+        (hasStore
+          ? '<div class="field"><label class="label">Branch / Store *</label><select class="input" id="f_loc">' +
+              ['Branch', 'Store'].map(function (o) { return '<option' + (p.location === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') +
+              '</select></div>'
+          : '<input type="hidden" id="f_loc" value="' + esc(p.location || '') + '">') +
+      '</div>' +
+      '<div class="grid2"><div class="field"><label class="label">Buying price (' + esc(cur()) + ') *</label><input class="input num" id="f_cost" type="number" value="' + p.cost + '" placeholder="e.g. 350000"></div>' +
+        '<div class="field"><label class="label">Selling price (' + esc(cur()) + ') *</label><input class="input num" id="f_price" type="number" value="' + p.price + '" placeholder="e.g. 500000"></div></div>' +
+      '<div class="grid2"><div class="field"><label class="label">Re-order level *</label><input class="input num" id="f_low" type="number" value="' + (p.lowStock || '') + '" placeholder="' + (num(state.settings.lowStockDefault) || 5) + '"></div>' +
+        '<div class="field"><label class="label">Current stock *</label><input class="input num" id="f_stock" type="number" value="' + p.stock + '" placeholder="e.g. 100"></div></div>' +
+      '<div class="field"><label class="label">Barcode (optional)</label><input class="input mono" id="f_bar" value="' + esc(p.barcode) + '" placeholder="Scan or type…"></div>' +
       '<div class="field"><label class="label">Image URL (optional)</label><input class="input" id="f_img" value="' + esc(p.imageUrl) + '" placeholder="https://…"></div>' +
-      '<div class="field"><label class="label">Name</label><input class="input" id="f_name" value="' + esc(p.name) + '"></div>' +
-      '<div class="field"><label class="label">Category</label><div class="combo" id="catCombo">' +
-        '<input class="input" id="f_cat" value="' + esc(p.category) + '" placeholder="Search or type…" autocomplete="off"></div></div>' +
-      '<div class="grid2"><div class="field"><label class="label">SKU</label><input class="input mono" id="f_sku" value="' + esc(p.sku) + '"></div>' +
-        '<div class="field"><label class="label">Barcode</label><input class="input mono" id="f_bar" value="' + esc(p.barcode) + '"></div></div>' +
-      '<div class="grid2"><div class="field"><label class="label">Cost</label><input class="input num" id="f_cost" type="number" value="' + p.cost + '"></div>' +
-        '<div class="field"><label class="label">Price</label><input class="input num" id="f_price" type="number" value="' + p.price + '"></div></div>' +
-      '<div class="grid2"><div class="field"><label class="label">Stock</label><input class="input num" id="f_stock" type="number" value="' + p.stock + '"></div>' +
-        '<div class="field"><label class="label">Low-stock alert</label><input class="input num" id="f_low" type="number" value="' + (p.lowStock || '') + '" placeholder="' + (num(state.settings.lowStockDefault) || 5) + '"></div></div>' +
+      '<div class="field"><button class="btn btn-ghost btn-block btn-sm" id="serBtn" type="button">' + icon('plus') + 'Add serial numbers</button>' +
+        '<div id="serWrap" style="display:' + (p.serials ? 'block' : 'none') + ';margin-top:8px">' +
+          '<textarea class="input" id="f_serials" placeholder="One serial number per line">' + esc(p.serials || '') + '</textarea>' +
+          '<div class="muted" style="font-size:.72rem;margin-top:4px">One serial per line — a product can have many.</div></div></div>' +
       '<button class="btn btn-primary btn-block" id="saveProd">' + (isEdit ? 'Save changes' : 'Add product') + '</button>';
     modal(isEdit ? 'Edit product' : 'Add product', body, function () {
       categoryCombo($('#catCombo'), $('#f_cat'));
+      $('#serBtn').addEventListener('click', function () {
+        var w = $('#serWrap');
+        w.style.display = w.style.display === 'none' ? 'block' : 'none';
+        if (w.style.display === 'block') $('#f_serials').focus();
+      });
       $('#saveProd').addEventListener('click', function () {
+        var loc = $('#f_loc');
         var data = {
           id: isEdit ? p.id : '', name: $('#f_name').value.trim(), sku: $('#f_sku').value.trim(),
           barcode: $('#f_bar').value.trim(), category: $('#f_cat').value.trim(),
+          location: loc ? loc.value.trim() : '',
           cost: num($('#f_cost').value), price: num($('#f_price').value),
-          stock: num($('#f_stock').value), lowStock: num($('#f_low').value), imageUrl: $('#f_img').value.trim()
+          stock: num($('#f_stock').value), lowStock: num($('#f_low').value),
+          serials: $('#f_serials') ? $('#f_serials').value.trim() : '',
+          imageUrl: $('#f_img').value.trim()
         };
         if (!data.name) { toast('Name is required', true); return; }
         var btn = $('#saveProd'); btn.disabled = true; btn.textContent = 'Saving…';
@@ -640,6 +737,73 @@
     };
   };
 
+  // ---- Cash -----------------------------------------------------------------
+  VIEWS.cash = function () {
+    return {
+      html: '<div class="view-head"><h1>Cash</h1><div class="spacer"></div>' +
+        '<button class="btn btn-ghost btn-sm" id="addExpense">' + icon('minus') + ' Expense</button>' +
+        '<button class="btn btn-primary btn-sm" id="addIncome">' + icon('plus') + ' Add money</button></div>' +
+        '<div id="cashTop"></div><div id="cashList" style="margin-top:16px"><div class="empty">Loading…</div></div>',
+      mount: function () {
+        $('#addIncome').addEventListener('click', incomeModal);
+        $('#addExpense').addEventListener('click', expenseModal);
+        function load() {
+          api('apiGetCashFlow', state.token, { limit: 200 }).then(function (r) {
+            $('#cashTop').innerHTML =
+              '<div class="card hero"><div class="stat-label">Money in hand</div>' +
+                '<div class="hero-money"><span class="hero-cur">' + esc(cur()) + '</span>' +
+                '<span class="hero-amt">' + fmtNum(r.balance) + '</span></div></div>' +
+              (r.series && r.series.length ? '<div class="card" style="margin-top:16px">' +
+                '<h2>Running balance · 30 days</h2>' + lineChart(r.series) + '</div>' : '');
+            $('#cashList').innerHTML = r.rows.length ? '<div class="card"><h2>Ledger</h2>' +
+              r.rows.map(function (x) {
+                var out = String(x.direction) === 'out';
+                return '<div class="led"><div class="led-ico ' + (out ? 'out' : '') + '">' + icon(out ? 'minus' : 'plus') + '</div>' +
+                  '<div style="flex:1"><div style="font-weight:500;text-transform:capitalize">' + esc(String(x.type).replace(/_/g, ' ')) + '</div>' +
+                  '<div class="muted" style="font-size:.76rem">' + dt(x.date) + (x.note ? ' · ' + esc(x.note) : '') + '</div></div>' +
+                  '<div class="led-amt ' + (out ? 'out' : 'in') + '">' + (out ? '−' : '+') + money(x.amount) + '</div></div>';
+              }).join('') + '</div>' : '<div class="empty">No cash movements yet. Add money or record an expense.</div>';
+          }).catch(function (e) { $('#cashList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+        }
+        window.__cashLoad = load;
+        load();
+      }
+    };
+  };
+  function incomeModal() {
+    modal('Add money',
+      '<div class="field"><label class="label">Source</label><select class="input" id="ci_type">' +
+        '<option value="owner_injection">Owner injection</option>' +
+        '<option value="loan">Loan</option>' +
+        '<option value="other_income">Other income</option>' +
+        '<option value="opening_balance">Opening balance</option>' +
+        '<option value="drawing">Owner drawing (cash out)</option></select></div>' +
+      '<div class="field"><label class="label">Amount</label><input class="input num" id="ci_amt" type="number" placeholder="0"></div>' +
+      '<div class="field"><label class="label">Note (optional)</label><input class="input" id="ci_note"></div>' +
+      '<button class="btn btn-primary btn-block" id="ci_save">Save</button>', function () {
+        $('#ci_save').addEventListener('click', function () {
+          var amt = num($('#ci_amt').value); if (amt <= 0) { toast('Enter an amount', true); return; }
+          api('apiAddCashEntry', state.token, { type: $('#ci_type').value, amount: amt, note: $('#ci_note').value.trim() })
+            .then(function () { closeModal(); toast('Saved'); if (window.__cashLoad) window.__cashLoad(); })
+            .catch(function (e) { toast(e.message, true); });
+        });
+      });
+  }
+  function expenseModal() {
+    modal('Record expense',
+      '<div class="field"><label class="label">Category</label><input class="input" id="ce_cat" placeholder="e.g. Rent, Transport, Airtime"></div>' +
+      '<div class="field"><label class="label">Amount</label><input class="input num" id="ce_amt" type="number" placeholder="0"></div>' +
+      '<div class="field"><label class="label">Note (optional)</label><input class="input" id="ce_note"></div>' +
+      '<button class="btn btn-primary btn-block" id="ce_save">Record expense</button>', function () {
+        $('#ce_save').addEventListener('click', function () {
+          var amt = num($('#ce_amt').value); if (amt <= 0) { toast('Enter an amount', true); return; }
+          api('apiAddExpense', state.token, { category: $('#ce_cat').value.trim() || 'General', amount: amt, note: $('#ce_note').value.trim() })
+            .then(function () { closeModal(); toast('Recorded'); if (window.__cashLoad) window.__cashLoad(); })
+            .catch(function (e) { toast(e.message, true); });
+        });
+      });
+  }
+
   // ---- Customers ------------------------------------------------------------
   VIEWS.customers = function () {
     return {
@@ -725,7 +889,9 @@
           '<div class="grid2">' +
             '<div class="field"><label class="label">VAT</label><select class="input" id="s_vat"><option value="false"' + (!s.vatEnabled ? ' selected' : '') + '>Off</option><option value="true"' + (s.vatEnabled ? ' selected' : '') + '>On</option></select></div>' +
             field('VAT rate %', 's_rate', s.vatRate || 18) + '</div>' +
-          field('Low-stock default', 's_low', s.lowStockDefault || 5) +
+          '<div class="grid2">' +
+            '<div class="field"><label class="label">I have a separate store</label><select class="input" id="s_store"><option value="false"' + (!s.hasStore ? ' selected' : '') + '>No</option><option value="true"' + (s.hasStore ? ' selected' : '') + '>Yes</option></select></div>' +
+            field('Low-stock default', 's_low', s.lowStockDefault || 5) + '</div>' +
           '<button class="btn btn-primary" id="saveSet">Save settings</button></div>' +
         '<div class="card"><h2>Appearance</h2><div class="row"><span class="muted">Theme</span><button class="btn btn-ghost" id="thBtn">Toggle light / dark</button></div></div>' +
         '<div class="card"><h2>My password</h2>' + field('Current', 'p_cur', '', 'password') + field('New', 'p_new', '', 'password') +
@@ -736,7 +902,8 @@
           var patch = {
             businessName: $('#s_name').value.trim(), phone: $('#s_phone').value.trim(), currency: $('#s_cur').value.trim() || 'UGX',
             address: $('#s_addr').value.trim(), receiptFooter: $('#s_foot').value.trim(), logoUrl: $('#s_logo').value.trim(),
-            vatEnabled: $('#s_vat').value === 'true', vatRate: num($('#s_rate').value), lowStockDefault: num($('#s_low').value)
+            vatEnabled: $('#s_vat').value === 'true', vatRate: num($('#s_rate').value),
+            lowStockDefault: num($('#s_low').value), hasStore: $('#s_store').value === 'true'
           };
           api('apiSaveSettings', state.token, patch).then(function (ns) {
             state.settings = Object.assign(state.settings, ns); toast('Saved');

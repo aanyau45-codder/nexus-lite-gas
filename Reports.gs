@@ -61,9 +61,22 @@ function apiDashboard(token) {
   }).slice(0, 5);
   var inv = apiInventoryValue(token);
   var summary = apiSalesSummary(token, {});
+
+  // Receivables: unpaid balances on credit sales (total still owed by customers).
+  var receivables = 0;
+  getTable('Sales').forEach(function (r) {
+    var bal = (Number(r.total) || 0) - (Number(r.amountPaid) || 0);
+    if (bal > 0) receivables += bal;
+  });
+  // Payables (what the user owes suppliers) arrive with the credit-purchases slice.
+  var payables = 0;
+
   return {
     todayTotal: todayTotal, todayCount: sales.length,
-    lowCount: inv.lowCount, outCount: inv.outCount, stockValue: inv.retailValue,
+    lowCount: inv.lowCount, outCount: inv.outCount,
+    stockValue: inv.retailValue, inventoryCost: inv.costValue,
+    cashBalance: cashBalance_(), receivables: receivables, payables: payables,
+    cashSeries: cashSeries_(30),
     recent: recent, byDay: summary.byDay.slice(-7)
   };
 }

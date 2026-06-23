@@ -34,7 +34,10 @@ function apiCreateSale(token, draft) {
     var taxable = itemsSubtotal - discount;
     var tax = s.vatEnabled ? Math.round(taxable * (Number(s.vatRate) || 0) / 100) : 0;
     var total = taxable + tax;
-    var amountPaid = Number(draft.amountPaid) || total;
+    // Credit sales may pay partially (or 0), so treat an explicit value (incl. 0)
+    // as the amount received; only default to `total` when none was sent.
+    var amountPaid = (draft.amountPaid == null || draft.amountPaid === '') ? total : (Number(draft.amountPaid) || 0);
+    if (amountPaid < 0) amountPaid = 0;
     var changeDue = Math.max(0, amountPaid - total);
 
     var ref = nextRef_('Sales', 'R-');
@@ -61,6 +64,15 @@ function apiCreateSale(token, draft) {
         change: -l.qty, reason: 'sale', ref: ref, note: ''
       });
     });
+
+    // Cash actually received (paid minus change). Credit balance, if any, becomes a receivable.
+    var cashIn = amountPaid - changeDue;
+    if (cashIn > 0) {
+      cashEntry_({
+        type: 'sale', direction: 'in', amount: cashIn, method: draft.paymentMethod || 'Cash',
+        refType: 'sale', refId: saleId, note: 'Sale ' + ref, recordedBy: user.name || user.username, date: date
+      });
+    }
 
     return {
       sale: getById('Sales', saleId),

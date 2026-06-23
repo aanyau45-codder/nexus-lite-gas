@@ -18,7 +18,8 @@ var API_ALLOW = {
   apiGetSales: 1, apiGetSale: 1, apiSaveProduct: 1, apiSaveCategory: 1, apiRestock: 1,
   apiDeleteProduct: 1, apiDeleteCategory: 1, apiGetCustomers: 1, apiSaveCustomer: 1,
   apiDeleteCustomer: 1, apiSalesSummary: 1, apiInventoryValue: 1, apiSaveSettings: 1,
-  apiChangePassword: 1, apiGetUsers: 1, apiSaveUser: 1, apiDeleteUser: 1
+  apiChangePassword: 1, apiGetUsers: 1, apiSaveUser: 1, apiDeleteUser: 1,
+  apiAddCashEntry: 1, apiAddExpense: 1, apiGetExpenses: 1, apiGetCashFlow: 1
 };
 
 function doPost(e) {
