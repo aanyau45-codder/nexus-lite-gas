@@ -150,7 +150,7 @@
   ];
   function allowed() {
     if (!state.user) return [];
-    if (state.user.role === 'cashier') return ['dashboard', 'pos', 'sales'];
+    if (state.user.role === 'cashier') return ['pos'];
     return NAV.map(function (n) { return n.id; }).concat(['reconcile']);
   }
   function currentRoute() {
@@ -223,7 +223,7 @@
   function afterLogin() {
     return Promise.all([api('apiGetProducts'), api('apiGetCategories')]).then(function (r) {
       state.products = r[0]; state.categories = r[1];
-      if (!location.hash) location.hash = '#/dashboard';
+      if (!location.hash) location.hash = '#/' + (allowed()[0] || 'dashboard');
       route();
     });
   }
