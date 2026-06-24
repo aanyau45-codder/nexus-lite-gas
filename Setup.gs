@@ -19,7 +19,9 @@ var SCHEMA = {
   PurchaseItems:  ['id', 'purchaseId', 'productId', 'name', 'qty', 'cost', 'subtotal'],
   Invoices:       ['id', 'ref', 'date', 'dueDate', 'customerId', 'customerName', 'itemsSubtotal', 'discount', 'tax', 'total', 'amountPaid', 'balance', 'status', 'notes', 'createdAt', 'updatedAt'],
   InvoiceItems:   ['id', 'invoiceId', 'productId', 'name', 'sku', 'price', 'qty', 'subtotal'],
-  Payments:       ['id', 'date', 'direction', 'refType', 'refId', 'party', 'amount', 'method', 'note', 'recordedBy']
+  Payments:       ['id', 'ref', 'date', 'direction', 'refType', 'refId', 'party', 'amount', 'method', 'note', 'recordedBy'],
+  PurchaseOrders: ['id', 'ref', 'date', 'expectedDate', 'supplierId', 'supplierName', 'status', 'total', 'note', 'createdAt', 'updatedAt', 'receivedAt'],
+  POItems:        ['id', 'poId', 'productId', 'name', 'qty', 'cost', 'subtotal']
 };
 
 /**

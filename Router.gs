@@ -25,7 +25,9 @@ var API_ALLOW = {
   apiCreatePurchase: 1, apiGetPurchases: 1, apiGetPurchase: 1,
   apiRecordPayment: 1, apiReceivables: 1, apiPayables: 1,
   apiCreateInvoice: 1, apiUpdateInvoice: 1, apiGetInvoices: 1, apiGetInvoice: 1, apiDeleteInvoice: 1,
-  apiProfitLoss: 1, apiCustomerReport: 1, apiSupplierReport: 1
+  apiProfitLoss: 1, apiCustomerReport: 1, apiSupplierReport: 1,
+  apiCreatePurchaseOrder: 1, apiGetPurchaseOrders: 1, apiGetPurchaseOrder: 1,
+  apiSetPurchaseOrderStatus: 1, apiDeletePurchaseOrder: 1, apiGetStockMovements: 1
 };
 
 function doPost(e) {

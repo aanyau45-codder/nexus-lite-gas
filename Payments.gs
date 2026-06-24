@@ -30,8 +30,10 @@ function apiRecordPayment(token, p) {
 
     var inbound = p.refType !== 'purchase';
     var party = row.customerName || row.supplierName || p.party || '';
+    var pref = nextRef_('Payments', 'PMT-');
+    var pdate = now_();
     appendRow('Payments', {
-      id: uuid_(), date: now_(), direction: inbound ? 'in' : 'out', refType: p.refType,
+      id: uuid_(), ref: pref, date: pdate, direction: inbound ? 'in' : 'out', refType: p.refType,
       refId: p.refId, party: party, amount: applied, method: p.method || 'Cash',
       note: p.note || '', recordedBy: user.name || user.username
     });
@@ -40,9 +42,13 @@ function apiRecordPayment(token, p) {
       direction: inbound ? 'in' : 'out', amount: applied, method: p.method || 'Cash',
       refType: p.refType, refId: p.refId,
       note: (inbound ? 'Payment from ' : 'Payment to ') + (party || p.refType),
-      recordedBy: user.name || user.username
+      recordedBy: user.name || user.username, date: pdate
     });
-    return { ok: true, applied: applied, balance: balance, status: status };
+    return {
+      ok: true, applied: applied, balance: balance, status: status,
+      payment: { ref: pref, date: pdate, party: party, amount: applied, method: p.method || 'Cash', direction: inbound ? 'in' : 'out' },
+      doc: { refType: p.refType, ref: row.ref, total: total, paid: newPaid }
+    };
   });
 }
 

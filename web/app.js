@@ -517,31 +517,57 @@
     return L.join('\n');
   }
 
-  // ---- Inventory ------------------------------------------------------------
+  // ---- subtab helper --------------------------------------------------------
+  function subtabsBar(tabs) {
+    return '<div class="subtabs">' + tabs.map(function (t, i) {
+      return '<button class="subtab' + (i === 0 ? ' active' : '') + '" data-sub="' + t[0] + '">' + esc(t[1]) + '</button>';
+    }).join('') + '</div>';
+  }
+  function subtabsWire(containerId, renderers, def) {
+    var root = $('#' + containerId);
+    function show(sub) {
+      $all('.subtab').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-sub') === sub); });
+      root.innerHTML = ''; renderers[sub](root);
+    }
+    $all('.subtab').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-sub')); }); });
+    show(def);
+  }
+
+  // ---- Inventory (Stock): Products · Purchase orders · Stock movements -------
   VIEWS.inventory = function () {
     return {
-      html: '<div class="view-head"><h1>Stock</h1><div class="spacer"></div>' +
+      html: '<div class="view-head"><h1>Stock</h1></div>' +
+        subtabsBar([['products', 'Products'], ['orders', 'Purchase orders'], ['movements', 'Stock movements']]) +
+        '<div id="stockSub"></div>',
+      mount: function () {
+        subtabsWire('stockSub', { products: renderProductsTab, orders: renderPurchaseOrdersTab, movements: renderStockMovementsTab }, 'products');
+      }
+    };
+  };
+
+  function renderProductsTab(root) {
+    root.innerHTML =
+      '<div class="toolbar"><div class="spacer"></div>' +
         '<button class="btn btn-ghost btn-sm" data-go2="categories">Categories</button>' +
         '<button class="btn btn-ghost btn-sm" id="bulkProd">Bulk add</button>' +
         '<button class="btn btn-primary btn-sm" id="addProd">+ Add product</button></div>' +
-        '<div class="toolbar">' +
-          '<input class="input" id="invSearch" placeholder="Search…" style="max-width:280px" value="' + esc(state.invSearch) + '">' +
-          '<button class="chip" data-f="all">All</button><button class="chip" data-f="low">Low</button><button class="chip" data-f="out">Out</button></div>' +
-        '<div id="invList"></div>',
-      mount: function () {
-        $('[data-go2="categories"]').addEventListener('click', function () { go('categories'); });
-        $('#addProd').addEventListener('click', function () { productModal(null); });
-        $('#bulkProd').addEventListener('click', bulkProductModal);
-        $('#invSearch').addEventListener('input', function () { state.invSearch = this.value; drawList(); });
-        $all('[data-f]').forEach(function (c) {
-          c.classList.toggle('active', c.getAttribute('data-f') === state.invFilter);
-          c.addEventListener('click', function () {
-            state.invFilter = c.getAttribute('data-f');
-            $all('[data-f]').forEach(function (x) { x.classList.toggle('active', x === c); });
-            drawList();
-          });
-        });
-        function drawList() {
+      '<div class="toolbar">' +
+        '<input class="input" id="invSearch" placeholder="Search…" style="max-width:280px" value="' + esc(state.invSearch) + '">' +
+        '<button class="chip" data-f="all">All</button><button class="chip" data-f="low">Low</button><button class="chip" data-f="out">Out</button></div>' +
+      '<div id="invList"></div>';
+    $('[data-go2="categories"]').addEventListener('click', function () { go('categories'); });
+    $('#addProd').addEventListener('click', function () { productModal(null); });
+    $('#bulkProd').addEventListener('click', bulkProductModal);
+    $('#invSearch').addEventListener('input', function () { state.invSearch = this.value; drawList(); });
+    $all('[data-f]').forEach(function (c) {
+      c.classList.toggle('active', c.getAttribute('data-f') === state.invFilter);
+      c.addEventListener('click', function () {
+        state.invFilter = c.getAttribute('data-f');
+        $all('[data-f]').forEach(function (x) { x.classList.toggle('active', x === c); });
+        drawList();
+      });
+    });
+    function drawList() {
           var q = state.invSearch.trim().toLowerCase();
           var def = num(state.settings.lowStockDefault) || 5;
           var list = state.products.filter(function (p) {
@@ -569,12 +595,122 @@
           $all('[data-re]').forEach(function (b) { b.addEventListener('click', function () { restockModal(find(b.getAttribute('data-re'))); }); });
           $all('[data-del]').forEach(function (b) { b.addEventListener('click', function () { delProduct(find(b.getAttribute('data-del'))); }); });
         }
-        function find(id) { return state.products.filter(function (p) { return p.id === id; })[0]; }
-        window.__invDraw = drawList;
-        drawList();
-      }
-    };
-  };
+    function find(id) { return state.products.filter(function (p) { return p.id === id; })[0]; }
+    window.__invDraw = drawList;
+    drawList();
+  }
+
+  // ---- Purchase orders (Stock subtab) ---------------------------------------
+  function poBadge(s) {
+    s = String(s || 'ordered').toLowerCase();
+    var cls = s === 'received' ? 'ok' : (s === 'cancelled' ? 'bad' : 'warn');
+    return '<span class="badge ' + cls + '">' + esc(s) + '</span>';
+  }
+  function renderPurchaseOrdersTab(root) {
+    root.innerHTML = '<div class="toolbar"><div class="spacer"></div><button class="btn btn-primary btn-sm" id="newPO">' + icon('plus') + ' New order</button></div><div id="poList"><div class="empty">Loading…</div></div>';
+    $('#newPO').addEventListener('click', purchaseOrderModal);
+    function load() {
+      api('apiGetPurchaseOrders', state.token, { limit: 200 }).then(function (rows) {
+        $('#poList').innerHTML = rows.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Ref</th><th>Date</th><th>Supplier</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>' +
+          rows.map(function (o) {
+            return '<tr><td class="mono">' + esc(o.ref) + '</td><td>' + dt(o.date) + '</td><td>' + esc(o.supplierName || '—') + '</td><td class="num">' + money(o.total) + '</td><td>' + poBadge(o.status) + '</td><td><button class="btn btn-ghost btn-sm" data-po="' + o.id + '">Open</button></td></tr>';
+          }).join('') + '</tbody></table></div>' : '<div class="empty">No purchase orders yet.</div>';
+        $all('[data-po]').forEach(function (b) { b.addEventListener('click', function () { openPO(b.getAttribute('data-po')); }); });
+      }).catch(function (e) { $('#poList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    }
+    window.__poLoad = load; load();
+  }
+  function purchaseOrderModal() {
+    api('apiGetSuppliers', state.token).then(function (sups) {
+      var ed = itemsEditor('Buying price (' + cur() + ')', 'cost', []);
+      modal('New purchase order',
+        '<div class="grid2"><div class="field"><label class="label">Supplier</label><select class="input" id="po_sup"><option value="">— none —</option>' +
+          sups.map(function (s) { return '<option value="' + esc(s.id) + '" data-name="' + esc(s.name) + '">' + esc(s.name) + '</option>'; }).join('') + '</select></div>' +
+          '<div class="field"><label class="label">Expected date</label><input class="input" id="po_exp" type="date"></div></div>' +
+        '<div id="po_items"></div>' +
+        '<div class="row"><strong>Total</strong><strong class="num" id="po_total">' + money(0) + '</strong></div>' +
+        '<button class="btn btn-primary btn-block" id="po_save">Create order</button>', function () {
+          $('#po_items').appendChild(ed.node);
+          function upd() { $('#po_total').textContent = money(ed.getTotal()); }
+          ed.onChange(upd); upd();
+          $('#po_save').addEventListener('click', function () {
+            var lines = ed.getLines(); if (!lines.length) { toast('Add at least one item', true); return; }
+            var sel = $('#po_sup'); var opt = sel.options[sel.selectedIndex];
+            var draft = { supplierId: sel.value, supplierName: opt ? (opt.getAttribute('data-name') || '') : '', items: lines, expectedDate: $('#po_exp').value };
+            var btn = $('#po_save'); btn.disabled = true; btn.textContent = 'Saving…';
+            api('apiCreatePurchaseOrder', state.token, draft).then(function () { closeModal(); toast('Order created'); if (window.__poLoad) window.__poLoad(); })
+              .catch(function (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Create order'; });
+          });
+        });
+    }).catch(function (e) { toast(e.message, true); });
+  }
+  function openPO(id) { api('apiGetPurchaseOrder', state.token, id).then(openPOData).catch(function (e) { toast(e.message, true); }); }
+  function openPOData(data) {
+    var o = data.po, items = data.items;
+    var rows = items.map(function (it) { return '<tr><td>' + esc(it.name) + '</td><td class="num">' + it.qty + '</td><td class="num">' + money(it.cost) + '</td><td class="num">' + money(it.subtotal) + '</td></tr>'; }).join('');
+    var actions = '';
+    if (o.status === 'ordered') actions += '<button class="btn btn-ghost" id="po_ship">Mark shipped</button>';
+    if (o.status !== 'received' && o.status !== 'cancelled') actions += '<button class="btn btn-primary" id="po_recv">Mark received (add to stock)</button>';
+    if (o.status !== 'received') actions += '<button class="btn btn-danger" id="po_cancel">Cancel</button>';
+    modal('Order ' + o.ref,
+      '<div class="muted" style="font-size:.82rem">' + esc(o.supplierName || 'No supplier') + ' · ' + dt(o.date) + (o.expectedDate ? ' · expected ' + esc(String(o.expectedDate).slice(0, 10)) : '') + '</div>' +
+      '<div class="row"><span>Status</span>' + poBadge(o.status) + '</div>' +
+      '<div class="table-wrap" style="margin-top:8px"><table class="table"><thead><tr><th>Item</th><th>Qty</th><th>Cost</th><th>Total</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div class="row"><strong>Total</strong><strong class="num">' + money(o.total) + '</strong></div>' +
+      '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">' + actions + '</div>', function () {
+        function setStatus(s, msg) { api('apiSetPurchaseOrderStatus', state.token, o.id, s).then(function () { return refreshProducts(); }).then(function () { closeModal(); toast(msg); if (window.__poLoad) window.__poLoad(); }).catch(function (e) { toast(e.message, true); }); }
+        var sh = $('#po_ship'); if (sh) sh.addEventListener('click', function () { setStatus('shipped', 'Marked shipped'); });
+        var rc = $('#po_recv'); if (rc) rc.addEventListener('click', function () { setStatus('received', 'Received — stock updated'); });
+        var cl = $('#po_cancel'); if (cl) cl.addEventListener('click', function () { setStatus('cancelled', 'Order cancelled'); });
+      });
+  }
+
+  // ---- Stock movements (Stock subtab) ---------------------------------------
+  function movementsTable(rows) {
+    return '<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Product</th><th>Change</th><th>Reason</th><th>Ref</th><th>Note</th></tr></thead><tbody>' +
+      rows.map(function (m) {
+        var ch = Number(m.change) || 0;
+        return '<tr><td>' + dt(m.date) + '</td><td>' + esc(m.productName || '') + '</td>' +
+          '<td class="num" style="color:' + (ch < 0 ? 'var(--destructive)' : 'var(--success)') + '">' + (ch > 0 ? '+' : '') + ch + '</td>' +
+          '<td>' + esc(m.reason || '') + '</td><td class="mono">' + esc(m.ref || '') + '</td><td>' + esc(m.note || '') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  function renderStockMovementsTab(root) {
+    root.innerHTML = '<div class="toolbar">' +
+      '<input class="input" id="mFrom" type="date" style="max-width:170px">' +
+      '<input class="input" id="mTo" type="date" style="max-width:170px">' +
+      '<button class="btn btn-ghost btn-sm" id="mGo">Run</button>' +
+      '<button class="btn btn-ghost btn-sm" id="mPrint">Print report</button></div>' +
+      '<div id="mOut"><div class="empty">Pick a range and Run.</div></div>';
+    function load() {
+      var opts = { limit: 2000 };
+      if ($('#mFrom').value) opts.from = $('#mFrom').value;
+      if ($('#mTo').value) opts.to = $('#mTo').value;
+      api('apiGetStockMovements', state.token, opts).then(function (rows) {
+        window.__mRows = rows; window.__mRange = { from: $('#mFrom').value, to: $('#mTo').value };
+        $('#mOut').innerHTML = rows.length ? movementsTable(rows) : '<div class="empty">No movements in range.</div>';
+      }).catch(function (e) { $('#mOut').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    }
+    $('#mGo').addEventListener('click', load);
+    $('#mPrint').addEventListener('click', function () {
+      if (!window.__mRows || !window.__mRows.length) { toast('Run a report first', true); return; }
+      printMovements(window.__mRows, window.__mRange);
+    });
+    load();
+  }
+  function printMovements(rows, range) {
+    var set = state.settings;
+    var period = (range && (range.from || range.to)) ? ((range.from || '…') + ' to ' + (range.to || '…')) : 'All time';
+    var html = '<div id="receipt" class="invoice-doc">' +
+      (set.logoUrl ? '<img class="r-logo" src="' + esc(set.logoUrl) + '" alt="">' : '') +
+      '<div class="r-center"><div class="r-biz">' + esc(set.businessName) + '</div>' +
+        '<div style="font-family:var(--font-display);font-weight:700">STOCK MOVEMENT REPORT</div>' +
+        '<div class="muted" style="font-size:.78rem">Period: ' + esc(period) + ' · printed ' + dt(new Date().toISOString()) + '</div></div>' +
+      '<div class="r-rule"></div>' + movementsTable(rows) + '</div>';
+    modal('Stock movement report', html + '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-primary" id="m_print">Print</button></div>', function () {
+      $('#m_print').addEventListener('click', function () { window.print(); });
+    });
+  }
 
   // Next auto SKU (PRD###) from the products already loaded; editable in the form.
   function nextSku() {
@@ -751,32 +887,48 @@
   VIEWS.sales = function () {
     return {
       html: '<div class="view-head"><h1>Sales</h1></div>' +
-        '<div class="toolbar">' +
-          '<input class="input" id="sFrom" type="date" style="max-width:170px">' +
-          '<input class="input" id="sTo" type="date" style="max-width:170px">' +
-          '<button class="btn btn-ghost btn-sm" id="sGo">Filter</button></div><div id="sList"><div class="empty">Loading…</div></div>',
-      mount: function () {
-        function load() {
-          var opts = { limit: 200 };
-          if ($('#sFrom').value) opts.from = $('#sFrom').value;
-          if ($('#sTo').value) opts.to = $('#sTo').value;
-          api('apiGetSales', state.token, opts).then(function (rows) {
-            $('#sList').innerHTML = rows.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Ref</th><th>Date</th><th>Customer</th><th>Total</th></tr></thead><tbody>' +
-              rows.map(function (s) {
-                return '<tr data-sale="' + s.id + '" style="cursor:pointer"><td class="mono">' + esc(s.ref) + '</td><td>' + dt(s.date) + '</td>' +
-                  '<td>' + esc(s.customerName || '—') + '</td><td><strong class="num">' + money(s.total) + '</strong></td></tr>';
-              }).join('') + '</tbody></table></div>' : '<div class="empty">No sales in range.</div>';
-            $all('[data-sale]').forEach(function (r) {
-              r.addEventListener('click', function () {
-                api('apiGetSale', state.token, r.getAttribute('data-sale')).then(renderReceiptModal);
-              });
-            });
-          }).catch(function (e) { $('#sList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
-        }
-        $('#sGo').addEventListener('click', load); load();
-      }
+        subtabsBar([['history', 'Sales history'], ['credit', 'Credit sales']]) +
+        '<div id="salesSub"></div>',
+      mount: function () { subtabsWire('salesSub', { history: renderSalesHistory, credit: renderCreditSales }, 'history'); }
     };
   };
+  function renderSalesHistory(root) {
+    root.innerHTML = '<div class="toolbar">' +
+      '<input class="input" id="sFrom" type="date" style="max-width:170px">' +
+      '<input class="input" id="sTo" type="date" style="max-width:170px">' +
+      '<button class="btn btn-ghost btn-sm" id="sGo">Filter</button></div><div id="sList"><div class="empty">Loading…</div></div>';
+    function load() {
+      var opts = { limit: 200 };
+      if ($('#sFrom').value) opts.from = $('#sFrom').value;
+      if ($('#sTo').value) opts.to = $('#sTo').value;
+      api('apiGetSales', state.token, opts).then(function (rows) {
+        $('#sList').innerHTML = rows.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Ref</th><th>Date</th><th>Customer</th><th>Total</th></tr></thead><tbody>' +
+          rows.map(function (s) {
+            return '<tr data-sale="' + s.id + '" style="cursor:pointer"><td class="mono">' + esc(s.ref) + '</td><td>' + dt(s.date) + '</td>' +
+              '<td>' + esc(s.customerName || '—') + '</td><td><strong class="num">' + money(s.total) + '</strong></td></tr>';
+          }).join('') + '</tbody></table></div>' : '<div class="empty">No sales in range.</div>';
+        $all('[data-sale]').forEach(function (r) {
+          r.addEventListener('click', function () { api('apiGetSale', state.token, r.getAttribute('data-sale')).then(renderReceiptModal); });
+        });
+      }).catch(function (e) { $('#sList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    }
+    $('#sGo').addEventListener('click', load); load();
+  }
+  function renderCreditSales(root) {
+    root.innerHTML = '<p class="muted" style="font-size:.82rem;margin-top:0">Everyone who owes you (unpaid credit sales + invoices). Record a payment to print a receipt.</p><div id="crSales"><div class="empty">Loading…</div></div>';
+    function load() {
+      api('apiReceivables', state.token).then(function (list) {
+        $('#crSales').innerHTML = list.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Customer</th><th>Ref</th><th>Total</th><th>Paid</th><th>Balance</th><th>Due</th><th></th></tr></thead><tbody>' +
+          list.map(function (r) {
+            return '<tr><td>' + esc(r.name) + '</td><td class="mono">' + esc(r.ref) + '</td><td class="num">' + money(r.total) + '</td><td class="num">' + money(r.amountPaid) + '</td>' +
+              '<td class="num">' + money(r.balance) + '</td><td>' + (r.dueDate ? esc(String(r.dueDate).slice(0, 10)) : '—') + '</td>' +
+              '<td><button class="btn btn-primary btn-sm" data-rp="' + r.refType + ':' + r.refId + '">Pay</button></td></tr>';
+          }).join('') + '</tbody></table></div>' : '<div class="empty">No outstanding credit sales.</div>';
+        $all('[data-rp]').forEach(function (b) { b.addEventListener('click', function () { var p = b.getAttribute('data-rp').split(':'); recordPaymentModal(p[0], p[1], load); }); });
+      }).catch(function (e) { $('#crSales').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    }
+    load();
+  }
 
   // ---- Cash -----------------------------------------------------------------
   VIEWS.cash = function () {
@@ -929,9 +1081,33 @@
         $('#rp_save').addEventListener('click', function () {
           var amt = num($('#rp_amt').value); if (amt <= 0) { toast('Enter an amount', true); return; }
           api('apiRecordPayment', state.token, { refType: refType, refId: refId, amount: amt, method: $('#rp_m').value, note: $('#rp_note').value.trim() })
-            .then(function () { closeModal(); toast('Payment recorded'); if (reload) reload(); })
+            .then(function (res) { toast('Payment recorded'); if (reload) reload(); renderPaymentReceipt(res); })
             .catch(function (e) { toast(e.message, true); });
         });
+      });
+  }
+  function renderPaymentReceipt(res) {
+    if (!res || !res.payment) { closeModal(); return; }
+    var pm = res.payment, set = state.settings, inbound = pm.direction === 'in';
+    var html = '<div id="receipt">' +
+      (set.logoUrl ? '<img class="r-logo" src="' + esc(set.logoUrl) + '" alt="">' : '') +
+      '<div class="r-center"><div class="r-biz">' + esc(set.businessName) + '</div>' +
+        (set.phone ? esc(set.phone) + '<br>' : '') + (set.address ? esc(set.address) : '') + '</div>' +
+      '<div class="r-rule"></div>' +
+      '<div class="r-center" style="font-weight:700;letter-spacing:.04em">PAYMENT RECEIPT</div>' +
+      '<div class="muted" style="font-size:.78rem;text-align:center">Ref ' + esc(pm.ref) + ' · ' + dt(pm.date) + '</div>' +
+      '<div class="r-rule"></div>' +
+      '<div class="r-line"><span>' + (inbound ? 'Received from' : 'Paid to') + '</span><span>' + esc(pm.party || '—') + '</span></div>' +
+      '<div class="r-line"><span>Against</span><span class="mono">' + esc((res.doc && res.doc.ref) || '') + '</span></div>' +
+      '<div class="r-line"><span>Method</span><span>' + esc(pm.method) + '</span></div>' +
+      '<div class="r-line"><strong>Amount ' + (inbound ? 'received' : 'paid') + '</strong><strong>' + money(pm.amount) + '</strong></div>' +
+      '<div class="r-line"><span>Balance remaining</span><span>' + money(res.balance) + '</span></div>' +
+      '<div class="r-rule"></div><div class="r-center muted">' + esc(set.receiptFooter || '') + '</div></div>';
+    modal('Payment receipt', html + '<div style="display:flex;gap:8px;margin-top:14px">' +
+      '<button class="btn btn-ghost btn-block" id="pr_print">Print</button>' +
+      '<button class="btn btn-primary btn-block" id="pr_done">Done</button></div>', function () {
+        $('#pr_print').addEventListener('click', function () { window.print(); });
+        $('#pr_done').addEventListener('click', closeModal);
       });
   }
 
@@ -975,25 +1151,44 @@
   // ---- Purchases (credit) ---------------------------------------------------
   VIEWS.purchases = function () {
     return {
-      html: '<div class="view-head"><h1>Purchases</h1><div class="spacer"></div><button class="btn btn-primary btn-sm" id="newPur">' + icon('plus') + ' New purchase</button></div><div id="purList"><div class="empty">Loading…</div></div>',
-      mount: function () {
-        $('#newPur').addEventListener('click', purchaseModal);
-        function load() {
-          api('apiGetPurchases', state.token, { limit: 200 }).then(function (rows) {
-            $('#purList').innerHTML = rows.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Ref</th><th>Date</th><th>Supplier</th><th>Total</th><th>Balance</th><th>Status</th><th></th></tr></thead><tbody>' +
-              rows.map(function (p) {
-                var bal = (Number(p.total) || 0) - (Number(p.amountPaid) || 0);
-                return '<tr><td class="mono">' + esc(p.ref) + '</td><td>' + dt(p.date) + '</td><td>' + esc(p.supplierName || '—') + '</td>' +
-                  '<td class="num">' + money(p.total) + '</td><td class="num">' + money(bal) + '</td><td>' + statusBadge(p.status) + '</td>' +
-                  '<td>' + (bal > 0 ? '<button class="btn btn-ghost btn-sm" data-pay="' + p.id + '">Pay</button>' : '') + '</td></tr>';
-              }).join('') + '</tbody></table></div>' : '<div class="empty">No purchases yet.</div>';
-            $all('[data-pay]').forEach(function (b) { b.addEventListener('click', function () { recordPaymentModal('purchase', b.getAttribute('data-pay'), load); }); });
-          }).catch(function (e) { $('#purList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
-        }
-        window.__purLoad = load; load();
-      }
+      html: '<div class="view-head"><h1>Purchases</h1></div>' +
+        subtabsBar([['list', 'Purchases'], ['credit', 'Credit purchases']]) +
+        '<div id="purSub"></div>',
+      mount: function () { subtabsWire('purSub', { list: renderPurchasesList, credit: renderCreditPurchases }, 'list'); }
     };
   };
+  function renderPurchasesList(root) {
+    root.innerHTML = '<div class="toolbar"><div class="spacer"></div><button class="btn btn-primary btn-sm" id="newPur">' + icon('plus') + ' New purchase</button></div><div id="purList"><div class="empty">Loading…</div></div>';
+    $('#newPur').addEventListener('click', purchaseModal);
+    function load() {
+      api('apiGetPurchases', state.token, { limit: 200 }).then(function (rows) {
+        $('#purList').innerHTML = rows.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Ref</th><th>Date</th><th>Supplier</th><th>Total</th><th>Balance</th><th>Status</th><th></th></tr></thead><tbody>' +
+          rows.map(function (p) {
+            var bal = (Number(p.total) || 0) - (Number(p.amountPaid) || 0);
+            return '<tr><td class="mono">' + esc(p.ref) + '</td><td>' + dt(p.date) + '</td><td>' + esc(p.supplierName || '—') + '</td>' +
+              '<td class="num">' + money(p.total) + '</td><td class="num">' + money(bal) + '</td><td>' + statusBadge(p.status) + '</td>' +
+              '<td>' + (bal > 0 ? '<button class="btn btn-ghost btn-sm" data-pay="' + p.id + '">Pay</button>' : '') + '</td></tr>';
+          }).join('') + '</tbody></table></div>' : '<div class="empty">No purchases yet.</div>';
+        $all('[data-pay]').forEach(function (b) { b.addEventListener('click', function () { recordPaymentModal('purchase', b.getAttribute('data-pay'), load); }); });
+      }).catch(function (e) { $('#purList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    }
+    window.__purLoad = load; load();
+  }
+  function renderCreditPurchases(root) {
+    root.innerHTML = '<p class="muted" style="font-size:.82rem;margin-top:0">Everyone you owe (unpaid purchases). Record a payment to print a receipt.</p><div id="crPur"><div class="empty">Loading…</div></div>';
+    function load() {
+      api('apiPayables', state.token).then(function (list) {
+        $('#crPur').innerHTML = list.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Supplier</th><th>Ref</th><th>Total</th><th>Paid</th><th>Balance</th><th>Due</th><th></th></tr></thead><tbody>' +
+          list.map(function (r) {
+            return '<tr><td>' + esc(r.name) + '</td><td class="mono">' + esc(r.ref) + '</td><td class="num">' + money(r.total) + '</td><td class="num">' + money(r.amountPaid) + '</td>' +
+              '<td class="num">' + money(r.balance) + '</td><td>' + (r.dueDate ? esc(String(r.dueDate).slice(0, 10)) : '—') + '</td>' +
+              '<td><button class="btn btn-primary btn-sm" data-rp="' + r.refType + ':' + r.refId + '">Pay</button></td></tr>';
+          }).join('') + '</tbody></table></div>' : '<div class="empty">You don\'t owe anyone right now.</div>';
+        $all('[data-rp]').forEach(function (b) { b.addEventListener('click', function () { var p = b.getAttribute('data-rp').split(':'); recordPaymentModal(p[0], p[1], load); }); });
+      }).catch(function (e) { $('#crPur').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    }
+    load();
+  }
   function purchaseModal() {
     api('apiGetSuppliers', state.token).then(function (sups) {
       var ed = itemsEditor('Buying price (' + cur() + ')', 'cost', []);
