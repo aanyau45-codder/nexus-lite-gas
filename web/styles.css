@@ -238,6 +238,16 @@ textarea.input { height:auto; padding:10px 12px; min-height:72px; }
   .only-mobile { display:none !important; }
 }
 @media (max-width:1023px) {
+  /* App-shell scroll model: only the content area (.view) scrolls, not the body.
+     This keeps the fixed bottom nav rock-solid on mobile browsers (iOS/Android),
+     where a body-scroll + fixed footer can drift. Scoped to the authed shell so
+     the login screen still scrolls normally. */
+  body:has(#app.app) { overflow:hidden; }
+  #app.app { height:100vh; height:100dvh; }
+  .main { height:100vh; height:100dvh; min-height:0; }
+  .view { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .topbar { position:static; }
+
   #app.app.nav-open .sidebar { display:flex; flex-direction:column; position:fixed; top:0; left:0; bottom:0;
     width:260px; z-index:50; background:var(--sidebar); border-right:1px solid var(--sidebar-border); overflow-y:auto; }
   #app.app.nav-open .backdrop { display:block; position:fixed; inset:0; background:hsl(150 30% 4% / .5); z-index:45; }
