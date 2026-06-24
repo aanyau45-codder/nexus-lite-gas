@@ -119,6 +119,18 @@
     var b = $('#themeBtn'); if (b) b.innerHTML = icon(document.documentElement.classList.contains('dark') ? 'sun' : 'moon');
   }
 
+  // Indigo monogram favicon, drawn inline so it matches the business initial.
+  function setFavicon(letter) {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
+      '<rect width="32" height="32" rx="7" fill="#6366f1"/>' +
+      '<text x="16" y="22.5" font-family="system-ui,Segoe UI,Arial,sans-serif" font-size="20" font-weight="700" fill="#fff" text-anchor="middle">' +
+      esc(letter || 'N') + '</text></svg>';
+    var link = document.querySelector('link[rel="icon"]');
+    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+    link.type = 'image/svg+xml';
+    link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  }
+
   // ---- navigation -----------------------------------------------------------
   var NAV = [
     { id: 'dashboard', label: 'Home', icon: 'home' },
@@ -1349,6 +1361,8 @@
   api('apiBootstrap').then(function (res) {
     if (res && res.settings) state.settings = Object.assign(state.settings, res.settings);
     applyTheme(state.settings.theme);
+    document.title = state.settings.businessName || 'Nexus Lite';
+    setFavicon(brandInitial());
     if (state.token) {
       return api('apiMe', state.token).then(function (u) { state.user = u; return afterLogin(); })
         .catch(function () { localStorage.removeItem('nl-token'); state.token = ''; renderLogin(); });
