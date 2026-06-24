@@ -7,11 +7,15 @@ function apiGetSuppliers(token) {
   });
 }
 
-function apiSaveSupplier(token, sup) {
+function apiSaveSupplier(token, sup, mode) {
   requireRole_(token, ['owner', 'manager']);
   sup = sup || {};
   if (!String(sup.name || '').trim()) throw new Error('Supplier name is required.');
   return withLock(function () {
+    if (!sup.id) {
+      var dup = findContactDup_('Suppliers', sup);
+      if (dup && mode !== 'new') return { duplicate: dup };
+    }
     if (sup.id) {
       updateRow('Suppliers', sup.id, {
         name: sup.name, phone: sup.phone || '', email: sup.email || '', address: sup.address || ''

@@ -5,10 +5,14 @@ function apiGetCustomers(token) {
   return getTable('Customers');
 }
 
-function apiSaveCustomer(token, c) {
+function apiSaveCustomer(token, c, mode) {
   requireUser_(token);
   if (!String(c.name || '').trim()) throw new Error('Customer name is required.');
   return withLock(function () {
+    if (!c.id) {
+      var dup = findContactDup_('Customers', c);
+      if (dup && mode !== 'new') return { duplicate: dup };
+    }
     if (c.id) {
       updateRow('Customers', c.id, {
         name: c.name, phone: c.phone || '', email: c.email || '', address: c.address || ''

@@ -49,9 +49,23 @@ function apiDeleteCategory(token, id) {
   return { ok: true };
 }
 
-function apiSaveProduct(token, p) {
+function apiSaveProduct(token, p, mode) {
   requireRole_(token, ['owner', 'manager']);
   return withLock(function () {
+    // Duplicate guard for NEW products: warn unless told to merge or save-as-new.
+    if (!p.id) {
+      var dup = findProductDup_(p);
+      if (dup && mode !== 'new' && mode !== 'merge') return { duplicate: normalizeProduct_(dup) };
+      if (dup && mode === 'merge') {
+        var add = Number(p.stock) || 0;
+        updateRow('Products', dup.id, { stock: (Number(dup.stock) || 0) + add, updatedAt: now_() });
+        if (add > 0) appendRow('StockMovements', {
+          id: uuid_(), date: now_(), productId: dup.id, productName: dup.name,
+          change: add, reason: 'restock', ref: '', note: 'Added to existing (duplicate)'
+        });
+        return normalizeProduct_(getById('Products', dup.id));
+      }
+    }
     if (p.id) {
       var before = getById('Products', p.id);
       updateRow('Products', p.id, {

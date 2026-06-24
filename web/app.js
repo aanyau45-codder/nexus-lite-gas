@@ -46,7 +46,10 @@
     'dollar-sign': '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
     eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
     'eye-off': '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
-    sliders: '<line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/>'
+    sliders: '<line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/>',
+    'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+    'grid-3x3': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+    list: '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>'
   };
   function icon(name) {
     return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
@@ -148,7 +151,7 @@
   function allowed() {
     if (!state.user) return [];
     if (state.user.role === 'cashier') return ['dashboard', 'pos', 'sales'];
-    return NAV.map(function (n) { return n.id; });
+    return NAV.map(function (n) { return n.id; }).concat(['reconcile']);
   }
   function currentRoute() {
     var r = location.hash.replace(/^#\/?/, '') || 'dashboard';
@@ -352,12 +355,26 @@
   VIEWS.pos = function () {
     return {
       html: '<div class="view-head"><h1>POS</h1><div class="spacer"></div>' +
-        '<input class="input" id="posSearch" placeholder="Search name / SKU / barcode" style="max-width:340px"></div>' +
+        '<div class="seg">' +
+          '<button class="seg-btn" data-view="large" title="Large icons">' + icon('layout-grid') + '</button>' +
+          '<button class="seg-btn" data-view="small" title="Small icons">' + icon('grid-3x3') + '</button>' +
+          '<button class="seg-btn" data-view="list" title="List view">' + icon('list') + '</button></div>' +
+        '<input class="input" id="posSearch" placeholder="Search name / SKU / barcode" style="max-width:280px"></div>' +
         '<div class="pos"><div id="posGrid" class="pos-products"></div>' +
         '<div id="cartPanel"></div></div>' +
         '<div class="cart-cta" id="cartCta"></div>',
       mount: function () {
         var search = '';
+        state.posView = state.posView || localStorage.getItem('nl-posview') || 'large';
+        function applyPosView() {
+          var g = $('#posGrid'); if (g) g.className = 'pos-products view-' + state.posView;
+          $all('[data-view]').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-view') === state.posView); });
+        }
+        $all('[data-view]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            state.posView = b.getAttribute('data-view'); localStorage.setItem('nl-posview', state.posView); applyPosView();
+          });
+        });
         function drawGrid() {
           var q = search.trim().toLowerCase();
           var list = state.products.filter(function (p) {
@@ -403,7 +420,10 @@
               '<button class="qtybtn" data-inc="' + i + '">+</button>' +
               '<button class="qtybtn" data-rm="' + i + '" style="color:var(--destructive)">✕</button></div>';
           }).join('') : '<p class="empty">Cart is empty</p>';
-          var body = '<div class="cart"><h2>' + icon('receipt') + 'Cart</h2>' + items +
+          var count = state.cart.reduce(function (a, c) { return a + c.qty; }, 0);
+          var body = '<div class="cart"><div class="cart-head"><h2 style="margin:0">' + icon('receipt') + 'Cart' +
+              (count ? ' <span class="cart-count">' + count + '</span>' : '') + '</h2>' +
+              (state.cart.length ? '<button class="btn btn-ghost btn-sm" id="clearCart">Clear</button>' : '') + '</div>' + items +
             '<div style="display:flex;gap:8px;margin:12px 0">' +
               '<button class="chip ' + (state.discType === 'flat' ? 'active' : '') + '" data-dt="flat">Flat</button>' +
               '<button class="chip ' + (state.discType === 'pct' ? 'active' : '') + '" data-dt="pct">%</button>' +
@@ -416,8 +436,9 @@
               'Charge <span class="charge-amt" id="chargeAmt">' + money(t.total) + '</span></button></div>';
           $('#cartPanel').innerHTML = body;
           $('#cartCta').innerHTML = state.cart.length ?
-            '<button class="btn btn-primary btn-block" id="ctaBtn">View cart (' + state.cart.length + ') · ' + money(t.total) + '</button>' : '';
+            '<button class="btn btn-primary btn-block" id="ctaBtn">View cart (' + count + ') · ' + money(t.total) + '</button>' : '';
           var cta = $('#ctaBtn'); if (cta) cta.addEventListener('click', function () { $('#cartPanel').scrollIntoView({ behavior: 'smooth' }); });
+          var cc = $('#clearCart'); if (cc) cc.addEventListener('click', function () { state.cart = []; state.discVal = 0; drawCart(); });
           $all('[data-inc]').forEach(function (b) { b.addEventListener('click', function () { var c = state.cart[+b.getAttribute('data-inc')]; if (c.qty < c.stock) c.qty++; else toast('Max stock', true); drawCart(); }); });
           $all('[data-dec]').forEach(function (b) { b.addEventListener('click', function () { var i = +b.getAttribute('data-dec'); state.cart[i].qty--; if (state.cart[i].qty <= 0) state.cart.splice(i, 1); drawCart(); }); });
           $all('[data-rm]').forEach(function (b) { b.addEventListener('click', function () { state.cart.splice(+b.getAttribute('data-rm'), 1); drawCart(); }); });
@@ -471,7 +492,7 @@
             });
         }
         $('#posSearch').addEventListener('input', function () { search = this.value; drawGrid(); });
-        drawGrid(); drawCart();
+        drawGrid(); drawCart(); applyPosView();
       }
     };
   };
@@ -770,10 +791,7 @@
           imageUrl: $('#f_img').value.trim()
         };
         if (!data.name) { toast('Name is required', true); return; }
-        var btn = $('#saveProd'); btn.disabled = true; btn.textContent = 'Saving…';
-        api('apiSaveProduct', state.token, data).then(function () { return refreshProducts(); })
-          .then(function () { closeModal(); toast('Saved'); if (window.__invDraw) window.__invDraw(); })
-          .catch(function (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Save'; });
+        doSaveProduct(data);
       });
     });
   }
@@ -829,6 +847,43 @@
       });
   }
   function refreshProducts() { return api('apiGetProducts').then(function (ps) { state.products = ps; }); }
+
+  function doSaveProduct(data, mode) {
+    var b = $('#saveProd'); if (b) { b.disabled = true; b.textContent = 'Saving…'; }
+    api('apiSaveProduct', state.token, data, mode).then(function (res) {
+      if (res && res.duplicate) { dupProductPrompt(res.duplicate, data); return; }
+      return refreshProducts().then(function () { closeModal(); toast('Saved'); if (window.__invDraw) window.__invDraw(); });
+    }).catch(function (e) { toast(e.message, true); var x = $('#saveProd'); if (x) { x.disabled = false; x.textContent = 'Save'; } });
+  }
+  function dupProductPrompt(existing, data) {
+    modal('Possible duplicate',
+      '<p style="margin-top:0">A product like <strong>' + esc(data.name) + '</strong> already exists:</p>' +
+      '<div class="card" style="margin:8px 0"><div class="row"><span><strong>' + esc(existing.name) + '</strong><br>' +
+        '<span class="muted mono" style="font-size:.74rem">' + esc(existing.sku || '') + '</span></span>' +
+        '<span class="num">' + (Number(existing.stock) || 0) + ' in stock</span></div></div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px">' +
+        '<button class="btn btn-primary" id="dp_merge">Add ' + (num(data.stock) || 0) + ' to the existing one</button>' +
+        '<button class="btn btn-ghost" id="dp_new">Save as a separate product</button>' +
+        '<button class="btn btn-ghost" id="dp_cancel">Cancel</button></div>', function () {
+        $('#dp_merge').addEventListener('click', function () { doSaveProduct(data, 'merge'); });
+        $('#dp_new').addEventListener('click', function () { doSaveProduct(data, 'new'); });
+        $('#dp_cancel').addEventListener('click', closeModal);
+      });
+  }
+  function dupContactPrompt(entity, existing, doSave) {
+    modal('Possible duplicate',
+      '<p style="margin-top:0">A ' + esc(entity) + ' like this already exists:</p>' +
+      '<div class="card" style="margin:8px 0"><div class="row"><strong>' + esc(existing.name) + '</strong>' +
+        '<span class="muted">' + esc(existing.phone || existing.email || '') + '</span></div></div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px">' +
+        '<button class="btn btn-primary" id="dp_use">Use the existing one</button>' +
+        '<button class="btn btn-ghost" id="dp_new">Save as separate</button>' +
+        '<button class="btn btn-ghost" id="dp_cancel">Cancel</button></div>', function () {
+        $('#dp_use').addEventListener('click', closeModal);
+        $('#dp_new').addEventListener('click', function () { doSave('new'); });
+        $('#dp_cancel').addEventListener('click', closeModal);
+      });
+  }
 
   function bulkProductModal() {
     modal('Bulk add products',
@@ -1143,7 +1198,12 @@
         $('#su_save').addEventListener('click', function () {
           var data = { id: e ? s.id : '', name: $('#su_name').value.trim(), phone: $('#su_phone').value.trim(), email: $('#su_email').value.trim(), address: $('#su_addr').value.trim() };
           if (!data.name) { toast('Name required', true); return; }
-          api('apiSaveSupplier', state.token, data).then(function () { closeModal(); toast('Saved'); if (window.__supLoad) window.__supLoad(); }).catch(function (er) { toast(er.message, true); });
+          (function save(mode) {
+            api('apiSaveSupplier', state.token, data, mode).then(function (res) {
+              if (res && res.duplicate) { dupContactPrompt('supplier', res.duplicate, save); return; }
+              closeModal(); toast('Saved'); if (window.__supLoad) window.__supLoad();
+            }).catch(function (er) { toast(er.message, true); });
+          })();
         });
       });
   }
@@ -1390,6 +1450,61 @@
       });
   }
 
+  // ---- Reconcile duplicates -------------------------------------------------
+  VIEWS.reconcile = function () {
+    return {
+      html: '<div class="view-head"><button class="icon-btn" data-go4="settings" title="Back">' + icon('arrow-left') + '</button><h1>Reconcile duplicates</h1></div><div id="dupOut"><div class="empty">Scanning…</div></div>',
+      mount: function () {
+        $('[data-go4]').addEventListener('click', function () { go('settings'); });
+        function load() {
+          api('apiFindDuplicates', state.token).then(function (d) {
+            var any = d.products.length + d.customers.length + d.suppliers.length;
+            $('#dupOut').innerHTML = any
+              ? (dupSection('Products', d.products, 'product') + dupSection('Customers', d.customers, 'customer') + dupSection('Suppliers', d.suppliers, 'supplier'))
+              : '<div class="empty">No duplicates found — everything looks clean.</div>';
+            wireDupMerge(load);
+          }).catch(function (e) { $('#dupOut').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+        }
+        load();
+      }
+    };
+  };
+  function dupSection(title, groups, entity) {
+    if (!groups.length) return '';
+    return '<h2 style="margin:18px 0 10px">' + esc(title) + ' · ' + groups.length + ' duplicate set' + (groups.length > 1 ? 's' : '') + '</h2>' +
+      groups.map(function (g, gi) {
+        var rid = entity + '-' + gi;
+        return '<div class="card" style="margin-bottom:12px"><div class="muted" style="font-size:.78rem;margin-bottom:6px">Choose the one to keep; the rest merge into it.</div>' +
+          g.map(function (r, ri) {
+            var label = entity === 'product'
+              ? (esc(r.name) + ' · ' + esc(r.sku || '—') + ' · ' + (Number(r.stock) || 0) + ' in stock')
+              : (esc(r.name) + (r.phone ? ' · ' + esc(r.phone) : '') + (r.email ? ' · ' + esc(r.email) : ''));
+            return '<label class="row" style="cursor:pointer;gap:8px"><span><input type="radio" name="' + rid + '" value="' + esc(r.id) + '"' + (ri === 0 ? ' checked' : '') + '> ' + label + '</span></label>';
+          }).join('') +
+          '<button class="btn btn-primary btn-sm" data-merge="' + entity + '|' + rid + '|' + g.map(function (r) { return r.id; }).join(',') + '" style="margin-top:8px">Merge this set</button></div>';
+      }).join('');
+  }
+  function wireDupMerge(reload) {
+    $all('[data-merge]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var parts = b.getAttribute('data-merge').split('|');
+        var entity = parts[0], rid = parts[1], ids = parts[2].split(',');
+        var sel = document.querySelector('input[name="' + rid + '"]:checked');
+        if (!sel) { toast('Pick one to keep', true); return; }
+        var keepId = sel.value, mergeIds = ids.filter(function (id) { return id !== keepId; });
+        if (!mergeIds.length) { toast('Nothing to merge', true); return; }
+        if (!confirm('Merge ' + mergeIds.length + ' record(s) into the selected one? This cannot be undone.')) return;
+        b.disabled = true; b.textContent = 'Merging…';
+        var call = entity === 'product'
+          ? api('apiMergeProducts', state.token, keepId, mergeIds)
+          : api('apiMergeContacts', state.token, entity, keepId, mergeIds);
+        call.then(function () { return entity === 'product' ? refreshProducts() : Promise.resolve(); })
+          .then(function () { toast('Merged'); if (reload) reload(); })
+          .catch(function (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Merge this set'; });
+      });
+    });
+  }
+
   // ---- Customers ------------------------------------------------------------
   VIEWS.customers = function () {
     return {
@@ -1423,7 +1538,12 @@
         $('#c_save').addEventListener('click', function () {
           var data = { id: e ? c.id : '', name: $('#c_name').value.trim(), phone: $('#c_phone').value.trim(), email: $('#c_email').value.trim(), address: $('#c_addr').value.trim() };
           if (!data.name) { toast('Name required', true); return; }
-          api('apiSaveCustomer', state.token, data).then(function () { closeModal(); toast('Saved'); if (window.__custLoad) window.__custLoad(); }).catch(function (er) { toast(er.message, true); });
+          (function save(mode) {
+            api('apiSaveCustomer', state.token, data, mode).then(function (res) {
+              if (res && res.duplicate) { dupContactPrompt('customer', res.duplicate, save); return; }
+              closeModal(); toast('Saved'); if (window.__custLoad) window.__custLoad();
+            }).catch(function (er) { toast(er.message, true); });
+          })();
         });
       });
   }
@@ -1482,6 +1602,7 @@
             field('Low-stock default', 's_low', s.lowStockDefault || 5) + '</div>' +
           '<button class="btn btn-primary" id="saveSet">Save settings</button></div>' +
         '<div class="card"><h2>Appearance</h2><div class="row"><span class="muted">Theme</span><button class="btn btn-ghost" id="thBtn">Toggle light / dark</button></div></div>' +
+        '<div class="card"><h2>Data</h2><div class="row"><span class="muted">Find &amp; merge duplicate products, customers, suppliers</span><button class="btn btn-ghost" id="reconBtn">Open</button></div></div>' +
         '<div class="card"><h2>My password</h2>' + field('Current', 'p_cur', '', 'password') + field('New', 'p_new', '', 'password') +
           '<button class="btn btn-ghost" id="chPw">Change password</button></div>' +
         (state.user.role === 'owner' ? '<div class="card"><div style="display:flex;align-items:center"><h2>Users</h2><div class="spacer"></div><button class="btn btn-primary btn-sm" id="addUser">+ Add</button></div><div id="uList" style="margin-top:8px"></div></div>' : ''),
@@ -1499,6 +1620,7 @@
           }).catch(function (e) { toast(e.message, true); });
         });
         $('#thBtn').addEventListener('click', toggleTheme);
+        var rb = $('#reconBtn'); if (rb) rb.addEventListener('click', function () { go('reconcile'); });
         $('#chPw').addEventListener('click', function () {
           api('apiChangePassword', state.token, $('#p_cur').value, $('#p_new').value)
             .then(function () { $('#p_cur').value = ''; $('#p_new').value = ''; toast('Password changed'); })
