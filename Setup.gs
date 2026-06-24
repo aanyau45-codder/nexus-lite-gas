@@ -9,11 +9,17 @@ var SCHEMA = {
   Categories:     ['id', 'name', 'createdAt'],
   Products:       ['id', 'name', 'sku', 'barcode', 'category', 'location', 'cost', 'price', 'stock', 'lowStock', 'serials', 'imageUrl', 'createdAt', 'updatedAt'],
   Customers:      ['id', 'name', 'phone', 'email', 'address', 'createdAt'],
-  Sales:          ['id', 'ref', 'date', 'customerId', 'customerName', 'itemsSubtotal', 'discount', 'tax', 'total', 'paymentMethod', 'amountPaid', 'changeDue', 'cashier'],
-  SaleItems:      ['id', 'saleId', 'productId', 'name', 'sku', 'price', 'qty', 'subtotal'],
+  Sales:          ['id', 'ref', 'date', 'customerId', 'customerName', 'itemsSubtotal', 'discount', 'tax', 'total', 'paymentMethod', 'amountPaid', 'changeDue', 'cashier', 'dueDate', 'status'],
+  SaleItems:      ['id', 'saleId', 'productId', 'name', 'sku', 'price', 'qty', 'subtotal', 'serials'],
   StockMovements: ['id', 'date', 'productId', 'productName', 'change', 'reason', 'ref', 'note'],
   Expenses:       ['id', 'date', 'category', 'amount', 'note', 'recordedBy'],
-  CashFlow:       ['id', 'date', 'type', 'direction', 'amount', 'method', 'refType', 'refId', 'note', 'recordedBy']
+  CashFlow:       ['id', 'date', 'type', 'direction', 'amount', 'method', 'refType', 'refId', 'note', 'recordedBy'],
+  Suppliers:      ['id', 'name', 'phone', 'email', 'address', 'createdAt'],
+  Purchases:      ['id', 'ref', 'date', 'dueDate', 'supplierId', 'supplierName', 'total', 'amountPaid', 'balance', 'status', 'note', 'createdAt', 'updatedAt'],
+  PurchaseItems:  ['id', 'purchaseId', 'productId', 'name', 'qty', 'cost', 'subtotal'],
+  Invoices:       ['id', 'ref', 'date', 'dueDate', 'customerId', 'customerName', 'itemsSubtotal', 'discount', 'tax', 'total', 'amountPaid', 'balance', 'status', 'notes', 'createdAt', 'updatedAt'],
+  InvoiceItems:   ['id', 'invoiceId', 'productId', 'name', 'sku', 'price', 'qty', 'subtotal'],
+  Payments:       ['id', 'date', 'direction', 'refType', 'refId', 'party', 'amount', 'method', 'note', 'recordedBy']
 };
 
 /**

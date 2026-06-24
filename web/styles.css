@@ -272,6 +272,20 @@ textarea.input { height:auto; padding:10px 12px; min-height:72px; }
 .ci-price-wrap { display:flex; align-items:center; gap:5px; margin-top:4px; }
 .ci-cur { font-family:var(--font-mono); font-size:.72rem; color:var(--muted-foreground); }
 .ci-price-in { width:108px; height:30px; padding:0 8px; font-size:.82rem; }
+.ci-serial { height:30px; padding:0 8px; font-size:.78rem; margin-top:5px; }
+
+/* dashboard cards + quick actions */
+.dash-card-wrap + .dash-card-wrap { margin-top:16px; }
+.quick-actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+.quick-actions .btn { justify-content:flex-start; }
+
+/* invoice document */
+.invoice-doc { font-family:var(--font-sans); }
+.inv-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+.invoice-doc .r-biz { font-family:var(--font-display); font-size:1.1rem; font-weight:700; }
+.invoice-doc .table th, .invoice-doc .table td { padding:8px 8px; }
+.invoice-doc .r-line { display:flex; justify-content:space-between; padding:3px 0; }
+.invoice-doc .r-rule { border-top:1px dashed var(--border); margin:8px 0; }
 .qtybtn { width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--muted);
   cursor:pointer; font-size:16px; line-height:1; color:inherit; }
 .qtybtn:hover { border-color:var(--primary); }

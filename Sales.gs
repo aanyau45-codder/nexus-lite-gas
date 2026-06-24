@@ -23,7 +23,7 @@ function apiCreateSale(token, draft) {
         ? Number(it.price) : (Number(p.price) || 0);
       var sub = price * qty;
       itemsSubtotal += sub;
-      lines.push({ product: p, qty: qty, price: price, sub: sub });
+      lines.push({ product: p, qty: qty, price: price, sub: sub, serials: it.serials || '' });
     });
 
     // discount: flat amount or percent
@@ -47,21 +47,30 @@ function apiCreateSale(token, draft) {
     var saleId = uuid_();
     var date = now_();
 
+    var saleStatus = (total - amountPaid) > 0 ? 'credit' : 'paid';
     appendRow('Sales', {
       id: saleId, ref: ref, date: date,
       customerId: draft.customerId || '', customerName: draft.customerName || '',
       itemsSubtotal: itemsSubtotal, discount: discount, tax: tax, total: total,
       paymentMethod: draft.paymentMethod || 'Cash', amountPaid: amountPaid,
-      changeDue: changeDue, cashier: user.name || user.username
+      changeDue: changeDue, cashier: user.name || user.username,
+      dueDate: draft.dueDate || '', status: saleStatus
     });
 
     lines.forEach(function (l) {
       appendRow('SaleItems', {
         id: uuid_(), saleId: saleId, productId: l.product.id, name: l.product.name,
-        sku: l.product.sku || '', price: l.price, qty: l.qty, subtotal: l.sub
+        sku: l.product.sku || '', price: l.price, qty: l.qty, subtotal: l.sub, serials: l.serials || ''
       });
       var left = Math.max(0, (Number(l.product.stock) || 0) - l.qty);
-      updateRow('Products', l.product.id, { stock: left, updatedAt: date });
+      // remove sold serials from the product's in-stock serial list
+      var serialsLeft = l.product.serials;
+      if (l.serials) {
+        var sold = String(l.serials).split(/\r?\n|,/).map(function (x) { return x.trim(); }).filter(Boolean);
+        var have = String(l.product.serials || '').split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean);
+        serialsLeft = have.filter(function (x) { return sold.indexOf(x) < 0; }).join('\n');
+      }
+      updateRow('Products', l.product.id, { stock: left, serials: serialsLeft, updatedAt: date });
       appendRow('StockMovements', {
         id: uuid_(), date: date, productId: l.product.id, productName: l.product.name,
         change: -l.qty, reason: 'sale', ref: ref, note: ''

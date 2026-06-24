@@ -39,7 +39,14 @@
     plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
     minus: '<path d="M5 12h14"/>',
     wallet: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',
-    'trending-up': '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>'
+    'trending-up': '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+    truck: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+    'file-text': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+    'shopping-bag': '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+    'dollar-sign': '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    'eye-off': '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
+    sliders: '<line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/>'
   };
   function icon(name) {
     return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
@@ -118,8 +125,11 @@
     { id: 'pos', label: 'POS', icon: 'shopping-cart' },
     { id: 'inventory', label: 'Stock', icon: 'package' },
     { id: 'sales', label: 'Sales', icon: 'receipt' },
+    { id: 'invoices', label: 'Invoices', icon: 'file-text' },
+    { id: 'purchases', label: 'Purchases', icon: 'shopping-bag' },
     { id: 'cash', label: 'Cash', icon: 'wallet' },
     { id: 'customers', label: 'Customers', icon: 'users' },
+    { id: 'suppliers', label: 'Suppliers', icon: 'truck' },
     { id: 'reports', label: 'Reports', icon: 'bar-chart' },
     { id: 'settings', label: 'Settings', icon: 'settings' }
   ];
@@ -258,43 +268,25 @@
   // ---- Dashboard ------------------------------------------------------------
   VIEWS.dashboard = function () {
     return {
-      html: '<div class="view-head"><h1>Home</h1></div><div id="dash"><div class="empty">Loading…</div></div>',
+      html: '<div class="view-head"><h1>Dashboard</h1><div class="spacer"></div>' +
+        (financeRole() ? '<button class="btn btn-ghost btn-sm" id="dashCustomize">' + icon('sliders') + ' Customize</button>' : '') +
+        '</div><div id="dash"><div class="empty">Loading…</div></div>',
       mount: function () {
-        var finance = state.user.role === 'owner' || state.user.role === 'manager';
         api('apiDashboard', state.token).then(function (d) {
-          var hero;
-          if (finance) {
-            hero = '<div class="card hero"><div class="stat-label">Cash in hand</div>' +
-              '<div class="hero-money"><span class="hero-cur">' + esc(cur()) + '</span>' +
-                '<span class="hero-amt">' + fmtNum(d.cashBalance) + '</span></div>' +
-              '<div class="hero-sub">' +
-                '<div>Today’s sales<strong>' + money(d.todayTotal) + '</strong></div>' +
-                '<div>Sales today<strong>' + d.todayCount + '</strong></div>' +
-                '<div>Low / Out<strong>' + d.lowCount + ' / ' + d.outCount + '</strong></div></div></div>';
-          } else {
-            hero = '<div class="card hero"><div class="stat-label">Today’s sales</div>' +
-              '<div class="hero-money"><span class="hero-cur">' + esc(cur()) + '</span>' +
-                '<span class="hero-amt">' + fmtNum(d.todayTotal) + '</span></div>' +
-              '<div class="hero-sub"><div>Sales today<strong>' + d.todayCount + '</strong></div>' +
-                '<div>Low / Out<strong>' + d.lowCount + ' / ' + d.outCount + '</strong></div></div></div>';
+          if (!financeRole()) {
+            $('#dash').innerHTML = '<div class="card hero"><div class="stat-label">Today’s sales</div>' +
+              '<div class="hero-money"><span class="hero-cur">' + esc(cur()) + '</span><span class="hero-amt">' + fmtNum(d.todayTotal) + '</span></div>' +
+              '<div class="hero-sub"><div>Sales today<strong>' + d.todayCount + '</strong></div><div>Low / Out<strong>' + d.lowCount + ' / ' + d.outCount + '</strong></div></div></div>' +
+              '<div class="dash-card-wrap">' + dashCardDefs().filter(function (c) { return c.id === 'recent'; })[0].render(d) + '</div>';
+            wireDash();
+            return;
           }
-          var cards = finance ? '<div class="stat-grid" style="margin-top:16px">' +
-            statCard('Inventory value', money(d.stockValue)) +
-            statCard('Money due to you', money(d.receivables), 'amber') +
-            statCard('You owe (payables)', money(d.payables), 'red') +
-            statCard('Stock at cost', money(d.inventoryCost)) + '</div>' : '';
-          var graph = (finance && d.cashSeries && d.cashSeries.length) ?
-            '<div class="card" style="margin-top:16px"><h2>Running balance · 30 days</h2>' +
-            lineChart(d.cashSeries) + '</div>' : '';
-          var bars = d.byDay.length ? '<div class="card" style="margin-top:16px"><h2>Last 7 days sales</h2><div class="bars">' +
-            barChart(d.byDay) + '</div></div>' : '';
-          var recent = '<div class="card" style="margin-top:16px"><h2>Recent sales</h2>' + (d.recent.length ?
-            d.recent.map(function (s) {
-              return '<div class="row"><div><strong class="mono">' + esc(s.ref) + '</strong><br>' +
-                '<span class="muted" style="font-size:.78rem">' + dt(s.date) + '</span></div>' +
-                '<strong class="num">' + money(s.total) + '</strong></div>';
-            }).join('') : '<p class="muted">No sales yet.</p>') + '</div>';
-          $('#dash').innerHTML = hero + cards + graph + bars + recent;
+          var vis = dashVisible(), defs = dashCardDefs();
+          $('#dash').innerHTML = defs.filter(function (c) { return vis[c.id] !== false; }).map(function (c) {
+            var h = c.render(d); return h ? '<div class="dash-card-wrap">' + h + '</div>' : '';
+          }).join('');
+          wireDash();
+          var cz = $('#dashCustomize'); if (cz) cz.addEventListener('click', function () { customizeDash(defs); });
         }).catch(function (e) { $('#dash').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
       }
     };
@@ -302,6 +294,14 @@
   function statCard(label, val, tone) {
     return '<div class="card stat-card' + (tone ? ' tone-' + tone : '') + '">' +
       '<div class="stat-label">' + esc(label) + '</div><div class="stat num">' + esc(val) + '</div></div>';
+  }
+  function reportTable(title, rows) {
+    return '<div class="card" style="margin-top:16px"><h2>' + esc(title) + '</h2>' + (rows && rows.length ?
+      '<div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Count</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead><tbody>' +
+      rows.map(function (x) {
+        return '<tr><td>' + esc(x.name) + '</td><td class="num">' + x.count + '</td><td class="num">' + money(x.total) +
+          '</td><td class="num">' + money(x.paid) + '</td><td class="num">' + money(x.balance) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="muted">No data.</p>') + '</div>';
   }
   function barChart(byDay) {
     var max = Math.max.apply(null, byDay.map(function (d) { return d.total; }).concat([1]));
@@ -368,7 +368,7 @@
           if (p.stock <= 0) { toast('Out of stock', true); return; }
           var line = state.cart.filter(function (c) { return c.productId === id; })[0];
           if (line) { if (line.qty < p.stock) line.qty++; else { toast('Only ' + p.stock + ' available', true); return; } }
-          else state.cart.push({ productId: id, name: p.name, price: p.price, qty: 1, stock: p.stock });
+          else state.cart.push({ productId: id, name: p.name, price: p.price, qty: 1, stock: p.stock, serialized: !!(p.serials && String(p.serials).trim()), serials: '' });
           drawCart();
         }
         function totals() {
@@ -383,7 +383,9 @@
           var items = state.cart.length ? state.cart.map(function (c, i) {
             return '<div class="cart-item"><div style="flex:1"><div class="ci-name">' + esc(c.name) + '</div>' +
               '<div class="ci-price-wrap"><span class="ci-cur">' + esc(cur()) + '</span>' +
-              '<input class="input ci-price-in num" type="number" min="0" data-price="' + i + '" value="' + c.price + '" title="Unit price — editable"></div></div>' +
+              '<input class="input ci-price-in num" type="number" min="0" data-price="' + i + '" value="' + c.price + '" title="Unit price — editable"></div>' +
+              (c.serialized ? '<input class="input ci-serial" data-serialin="' + i + '" placeholder="Serial no(s) — comma or line" value="' + esc(c.serials || '') + '">' : '') +
+              '</div>' +
               '<button class="qtybtn" data-dec="' + i + '">−</button>' +
               '<span class="num" style="min-width:24px;text-align:center">' + c.qty + '</span>' +
               '<button class="qtybtn" data-inc="' + i + '">+</button>' +
@@ -408,6 +410,7 @@
           $all('[data-dec]').forEach(function (b) { b.addEventListener('click', function () { var i = +b.getAttribute('data-dec'); state.cart[i].qty--; if (state.cart[i].qty <= 0) state.cart.splice(i, 1); drawCart(); }); });
           $all('[data-rm]').forEach(function (b) { b.addEventListener('click', function () { state.cart.splice(+b.getAttribute('data-rm'), 1); drawCart(); }); });
           $all('[data-price]').forEach(function (b) { b.addEventListener('change', function () { state.cart[+b.getAttribute('data-price')].price = Math.max(0, num(b.value)); drawCart(); }); });
+          $all('[data-serialin]').forEach(function (b) { b.addEventListener('change', function () { state.cart[+b.getAttribute('data-serialin')].serials = b.value; }); });
           $all('[data-dt]').forEach(function (b) { b.addEventListener('click', function () { state.discType = b.getAttribute('data-dt'); drawCart(); }); });
           var di = $('#discIn'); if (di) di.addEventListener('input', function () { state.discVal = num(di.value); var ca = $('#chargeAmt'); if (ca) ca.textContent = money(totals().total); });
           var cb = $('#checkoutBtn'); if (cb) cb.addEventListener('click', checkout);
@@ -418,7 +421,8 @@
             '<div class="row"><strong>Total</strong><strong class="num">' + money(t.total) + '</strong></div>' +
             '<div class="field"><label class="label">Payment method</label><select class="input" id="pm">' +
               '<option>Cash</option><option>Mobile Money</option><option>Card</option><option>Credit</option></select></div>' +
-            '<div class="field"><label class="label">Customer (for credit / receipt)</label><input class="input" id="custName" placeholder="Optional"></div>' +
+            '<div class="grid2"><div class="field"><label class="label">Customer (for credit / receipt)</label><input class="input" id="custName" placeholder="Optional"></div>' +
+            '<div class="field"><label class="label">Due date (credit)</label><input class="input" id="saleDue" type="date"></div></div>' +
             '<div class="field"><label class="label">Amount paid</label><input class="input num" id="paid" type="number" value="' + t.total + '"></div>' +
             '<div class="row"><span class="muted" id="balLbl">Change</span><strong class="num" id="chg">' + money(0) + '</strong></div>' +
             '<button class="btn btn-primary btn-block" id="doSale" style="margin-top:12px">Complete sale</button>',
@@ -439,10 +443,10 @@
               $('#doSale').addEventListener('click', function () {
                 var btn = $('#doSale'); btn.disabled = true; btn.textContent = 'Saving…';
                 var draft = {
-                  items: state.cart.map(function (c) { return { productId: c.productId, qty: c.qty }; }),
+                  items: state.cart.map(function (c) { return { productId: c.productId, qty: c.qty, price: c.price, serials: c.serials || '' }; }),
                   discount: num(state.discVal), discountType: state.discType,
                   paymentMethod: $('#pm').value, amountPaid: num($('#paid').value),
-                  customerName: $('#custName').value.trim()
+                  customerName: $('#custName').value.trim(), dueDate: $('#saleDue').value
                 };
                 api('apiCreateSale', state.token, draft).then(function (res) {
                   state.cart = []; state.discVal = 0;
@@ -851,6 +855,334 @@
       });
   }
 
+  // ---- shared bits for purchases / invoices ---------------------------------
+  function statusBadge(s) {
+    s = String(s || 'unpaid').toLowerCase();
+    var cls = s === 'paid' ? 'ok' : (s === 'partial' ? 'warn' : 'bad');
+    return '<span class="badge ' + cls + '">' + esc(s) + '</span>';
+  }
+
+  // A reusable line-item editor (product picker + qty + unit price/cost).
+  function itemsEditor(unitLabel, unitKey, initial) {
+    var lines = (initial || []).map(function (l) { return { productId: l.productId, name: l.name, qty: Number(l.qty) || 0, unit: Number(l.unit) || 0 }; });
+    var wrap = document.createElement('div');
+    var onChangeCb = null;
+    wrap.innerHTML =
+      '<div class="grid2"><div class="field"><label class="label">Product</label>' +
+        '<select class="input" data-ie="prod"><option value="">— select product —</option>' +
+        state.products.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="field"><label class="label">Qty</label><input class="input num" data-ie="qty" type="number" value="1" min="1"></div></div>' +
+      '<div class="grid2"><div class="field"><label class="label">' + esc(unitLabel) + '</label><input class="input num" data-ie="unit" type="number" value="0"></div>' +
+        '<div class="field" style="display:flex;align-items:flex-end"><button class="btn btn-ghost btn-block" data-ie="add" type="button">' + icon('plus') + 'Add line</button></div></div>' +
+      '<div data-ie="list"></div>';
+    var prodSel = $('[data-ie="prod"]', wrap);
+    prodSel.addEventListener('change', function () {
+      var p = state.products.filter(function (x) { return x.id === prodSel.value; })[0];
+      if (p) $('[data-ie="unit"]', wrap).value = unitKey === 'cost' ? (p.cost || 0) : (p.price || 0);
+    });
+    $('[data-ie="add"]', wrap).addEventListener('click', function () {
+      var p = state.products.filter(function (x) { return x.id === prodSel.value; })[0];
+      var qty = Math.floor(num($('[data-ie="qty"]', wrap).value)) || 0;
+      var unit = num($('[data-ie="unit"]', wrap).value);
+      if (!p) { toast('Pick a product', true); return; }
+      if (qty <= 0) { toast('Qty must be above 0', true); return; }
+      lines.push({ productId: p.id, name: p.name, qty: qty, unit: unit });
+      $('[data-ie="qty"]', wrap).value = 1; render();
+    });
+    function render() {
+      var total = lines.reduce(function (a, l) { return a + l.qty * l.unit; }, 0);
+      $('[data-ie="list"]', wrap).innerHTML = lines.length ? '<div class="table-wrap" style="margin-top:8px"><table class="table"><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th><th></th></tr></thead><tbody>' +
+        lines.map(function (l, i) {
+          return '<tr><td>' + esc(l.name) + '</td><td class="num">' + l.qty + '</td><td class="num">' + money(l.unit) + '</td><td class="num">' + money(l.qty * l.unit) + '</td>' +
+            '<td><button class="btn btn-ghost btn-sm" data-rmline="' + i + '" type="button">✕</button></td></tr>';
+        }).join('') + '</tbody></table></div>' : '<p class="muted" style="font-size:.82rem">No items added yet.</p>';
+      $all('[data-rmline]', wrap).forEach(function (b) { b.addEventListener('click', function () { lines.splice(+b.getAttribute('data-rmline'), 1); render(); }); });
+      if (onChangeCb) onChangeCb();
+    }
+    render();
+    return {
+      node: wrap,
+      getLines: function () { return lines.map(function (l) { return { productId: l.productId, name: l.name, qty: l.qty, price: l.unit, cost: l.unit }; }); },
+      getTotal: function () { return lines.reduce(function (a, l) { return a + l.qty * l.unit; }, 0); },
+      onChange: function (cb) { onChangeCb = cb; }
+    };
+  }
+
+  function recordPaymentModal(refType, refId, reload) {
+    modal('Record payment',
+      '<div class="field"><label class="label">Amount</label><input class="input num" id="rp_amt" type="number" placeholder="0"></div>' +
+      '<div class="field"><label class="label">Method</label><select class="input" id="rp_m"><option>Cash</option><option>Mobile Money</option><option>Card</option><option>Bank</option></select></div>' +
+      '<div class="field"><label class="label">Note (optional)</label><input class="input" id="rp_note"></div>' +
+      '<button class="btn btn-primary btn-block" id="rp_save">Record</button>', function () {
+        $('#rp_save').addEventListener('click', function () {
+          var amt = num($('#rp_amt').value); if (amt <= 0) { toast('Enter an amount', true); return; }
+          api('apiRecordPayment', state.token, { refType: refType, refId: refId, amount: amt, method: $('#rp_m').value, note: $('#rp_note').value.trim() })
+            .then(function () { closeModal(); toast('Payment recorded'); if (reload) reload(); })
+            .catch(function (e) { toast(e.message, true); });
+        });
+      });
+  }
+
+  // ---- Suppliers ------------------------------------------------------------
+  VIEWS.suppliers = function () {
+    return {
+      html: '<div class="view-head"><h1>Suppliers</h1><div class="spacer"></div><button class="btn btn-primary btn-sm" id="addSup">' + icon('plus') + ' Add supplier</button></div><div id="supList"><div class="empty">Loading…</div></div>',
+      mount: function () {
+        $('#addSup').addEventListener('click', function () { supplierModal(null); });
+        function load() {
+          api('apiGetSuppliers', state.token).then(function (ss) {
+            $('#supList').innerHTML = ss.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Phone</th><th></th></tr></thead><tbody>' +
+              ss.map(function (s) {
+                return '<tr><td><strong>' + esc(s.name) + '</strong><br><span class="muted" style="font-size:.76rem">' + esc(s.email || '') + '</span></td><td>' + esc(s.phone || '—') + '</td>' +
+                  '<td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-es="' + s.id + '">Edit</button> <button class="btn btn-ghost btn-sm" data-xs="' + s.id + '" style="color:var(--destructive)">✕</button></td></tr>';
+              }).join('') + '</tbody></table></div>' : '<div class="empty">No suppliers yet.</div>';
+            $all('[data-es]').forEach(function (b) { b.addEventListener('click', function () { supplierModal(ss.filter(function (x) { return x.id === b.getAttribute('data-es'); })[0]); }); });
+            $all('[data-xs]').forEach(function (b) { b.addEventListener('click', function () { api('apiDeleteSupplier', state.token, b.getAttribute('data-xs')).then(load).catch(function (e) { toast(e.message, true); }); }); });
+          }).catch(function (e) { $('#supList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+        }
+        window.__supLoad = load; load();
+      }
+    };
+  };
+  function supplierModal(s) {
+    var e = !!s; s = s || { name: '', phone: '', email: '', address: '' };
+    modal(e ? 'Edit supplier' : 'Add supplier',
+      '<div class="field"><label class="label">Name</label><input class="input" id="su_name" value="' + esc(s.name) + '"></div>' +
+      '<div class="grid2"><div class="field"><label class="label">Phone</label><input class="input" id="su_phone" value="' + esc(s.phone) + '"></div>' +
+      '<div class="field"><label class="label">Email</label><input class="input" id="su_email" value="' + esc(s.email) + '"></div></div>' +
+      '<div class="field"><label class="label">Address</label><input class="input" id="su_addr" value="' + esc(s.address) + '"></div>' +
+      '<button class="btn btn-primary btn-block" id="su_save">Save</button>', function () {
+        $('#su_save').addEventListener('click', function () {
+          var data = { id: e ? s.id : '', name: $('#su_name').value.trim(), phone: $('#su_phone').value.trim(), email: $('#su_email').value.trim(), address: $('#su_addr').value.trim() };
+          if (!data.name) { toast('Name required', true); return; }
+          api('apiSaveSupplier', state.token, data).then(function () { closeModal(); toast('Saved'); if (window.__supLoad) window.__supLoad(); }).catch(function (er) { toast(er.message, true); });
+        });
+      });
+  }
+
+  // ---- Purchases (credit) ---------------------------------------------------
+  VIEWS.purchases = function () {
+    return {
+      html: '<div class="view-head"><h1>Purchases</h1><div class="spacer"></div><button class="btn btn-primary btn-sm" id="newPur">' + icon('plus') + ' New purchase</button></div><div id="purList"><div class="empty">Loading…</div></div>',
+      mount: function () {
+        $('#newPur').addEventListener('click', purchaseModal);
+        function load() {
+          api('apiGetPurchases', state.token, { limit: 200 }).then(function (rows) {
+            $('#purList').innerHTML = rows.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Ref</th><th>Date</th><th>Supplier</th><th>Total</th><th>Balance</th><th>Status</th><th></th></tr></thead><tbody>' +
+              rows.map(function (p) {
+                var bal = (Number(p.total) || 0) - (Number(p.amountPaid) || 0);
+                return '<tr><td class="mono">' + esc(p.ref) + '</td><td>' + dt(p.date) + '</td><td>' + esc(p.supplierName || '—') + '</td>' +
+                  '<td class="num">' + money(p.total) + '</td><td class="num">' + money(bal) + '</td><td>' + statusBadge(p.status) + '</td>' +
+                  '<td>' + (bal > 0 ? '<button class="btn btn-ghost btn-sm" data-pay="' + p.id + '">Pay</button>' : '') + '</td></tr>';
+              }).join('') + '</tbody></table></div>' : '<div class="empty">No purchases yet.</div>';
+            $all('[data-pay]').forEach(function (b) { b.addEventListener('click', function () { recordPaymentModal('purchase', b.getAttribute('data-pay'), load); }); });
+          }).catch(function (e) { $('#purList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+        }
+        window.__purLoad = load; load();
+      }
+    };
+  };
+  function purchaseModal() {
+    api('apiGetSuppliers', state.token).then(function (sups) {
+      var ed = itemsEditor('Buying price (' + cur() + ')', 'cost', []);
+      modal('New credit purchase',
+        '<div class="field"><label class="label">Supplier</label><select class="input" id="pu_sup"><option value="">— none —</option>' +
+          sups.map(function (s) { return '<option value="' + esc(s.id) + '" data-name="' + esc(s.name) + '">' + esc(s.name) + '</option>'; }).join('') + '</select></div>' +
+        '<div id="pu_items"></div>' +
+        '<div class="grid2"><div class="field"><label class="label">Amount paid now</label><input class="input num" id="pu_paid" type="number" value="0"></div>' +
+          '<div class="field"><label class="label">Due date</label><input class="input" id="pu_due" type="date"></div></div>' +
+        '<div class="row"><strong>Total</strong><strong class="num" id="pu_total">' + money(0) + '</strong></div>' +
+        '<div class="row"><span class="muted">Balance (payable)</span><strong class="num" id="pu_bal">' + money(0) + '</strong></div>' +
+        '<button class="btn btn-primary btn-block" id="pu_save">Save purchase</button>', function () {
+          $('#pu_items').appendChild(ed.node);
+          function upd() { var t = ed.getTotal(); $('#pu_total').textContent = money(t); $('#pu_bal').textContent = money(Math.max(0, t - num($('#pu_paid').value))); }
+          ed.onChange(upd); $('#pu_paid').addEventListener('input', upd); upd();
+          $('#pu_save').addEventListener('click', function () {
+            var lines = ed.getLines(); if (!lines.length) { toast('Add at least one item', true); return; }
+            var sel = $('#pu_sup'); var opt = sel.options[sel.selectedIndex];
+            var draft = { supplierId: sel.value, supplierName: opt ? (opt.getAttribute('data-name') || '') : '', items: lines, amountPaid: num($('#pu_paid').value), dueDate: $('#pu_due').value };
+            var btn = $('#pu_save'); btn.disabled = true; btn.textContent = 'Saving…';
+            api('apiCreatePurchase', state.token, draft).then(function () { return refreshProducts(); })
+              .then(function () { closeModal(); toast('Purchase saved'); if (window.__purLoad) window.__purLoad(); })
+              .catch(function (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Save purchase'; });
+          });
+        });
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  // ---- Invoices -------------------------------------------------------------
+  VIEWS.invoices = function () {
+    return {
+      html: '<div class="view-head"><h1>Invoices</h1><div class="spacer"></div><button class="btn btn-primary btn-sm" id="newInv">' + icon('plus') + ' New invoice</button></div><div id="invListV"><div class="empty">Loading…</div></div>',
+      mount: function () {
+        $('#newInv').addEventListener('click', function () { invoiceModal(null); });
+        function load() {
+          api('apiGetInvoices', state.token, { limit: 200 }).then(function (rows) {
+            $('#invListV').innerHTML = rows.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Ref</th><th>Date</th><th>Customer</th><th>Total</th><th>Balance</th><th>Status</th><th></th></tr></thead><tbody>' +
+              rows.map(function (v) {
+                var bal = (Number(v.total) || 0) - (Number(v.amountPaid) || 0);
+                return '<tr><td class="mono">' + esc(v.ref) + '</td><td>' + dt(v.date) + '</td><td>' + esc(v.customerName || '—') + '</td>' +
+                  '<td class="num">' + money(v.total) + '</td><td class="num">' + money(bal) + '</td><td>' + statusBadge(v.status) + '</td>' +
+                  '<td><button class="btn btn-ghost btn-sm" data-vv="' + v.id + '">Open</button></td></tr>';
+              }).join('') + '</tbody></table></div>' : '<div class="empty">No invoices yet.</div>';
+            $all('[data-vv]').forEach(function (b) { b.addEventListener('click', function () { openInvoice(b.getAttribute('data-vv')); }); });
+          }).catch(function (e) { $('#invListV').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+        }
+        window.__invvLoad = load; load();
+      }
+    };
+  };
+  function invoiceModal(existing) {
+    var isEdit = !!existing, inv = isEdit ? existing.invoice : null;
+    var initItems = isEdit ? existing.items.map(function (it) { return { productId: it.productId, name: it.name, qty: Number(it.qty) || 0, unit: Number(it.price) || 0 }; }) : [];
+    api('apiGetCustomers', state.token).then(function (custs) {
+      var ed = itemsEditor('Unit price (' + cur() + ')', 'price', initItems);
+      modal(isEdit ? 'Edit invoice ' + inv.ref : 'New invoice',
+        '<div class="grid2"><div class="field"><label class="label">Customer</label><input class="input" id="iv_cust" list="iv_custs" value="' + (isEdit ? esc(inv.customerName || '') : '') + '" placeholder="Name">' +
+          '<datalist id="iv_custs">' + custs.map(function (c) { return '<option value="' + esc(c.name) + '">'; }).join('') + '</datalist></div>' +
+          '<div class="field"><label class="label">Due date</label><input class="input" id="iv_due" type="date" value="' + (isEdit && inv.dueDate ? esc(String(inv.dueDate).slice(0, 10)) : '') + '"></div></div>' +
+        '<div id="iv_items"></div>' +
+        '<div class="grid2"><div class="field"><label class="label">Amount paid</label><input class="input num" id="iv_paid" type="number" value="' + (isEdit ? (Number(inv.amountPaid) || 0) : 0) + '"></div>' +
+          '<div class="field"><label class="label">Notes</label><input class="input" id="iv_notes" value="' + (isEdit ? esc(inv.notes || '') : '') + '"></div></div>' +
+        '<div class="row"><strong>Items total</strong><strong class="num" id="iv_total">' + money(0) + '</strong></div>' +
+        '<p class="muted" style="font-size:.72rem">VAT/discount applied on save per Settings.</p>' +
+        '<button class="btn btn-primary btn-block" id="iv_save">' + (isEdit ? 'Save changes' : 'Create invoice') + '</button>', function () {
+          $('#iv_items').appendChild(ed.node);
+          function upd() { $('#iv_total').textContent = money(ed.getTotal()); }
+          ed.onChange(upd); upd();
+          $('#iv_save').addEventListener('click', function () {
+            var lines = ed.getLines(); if (!lines.length) { toast('Add at least one item', true); return; }
+            var draft = { id: isEdit ? inv.id : '', customerName: $('#iv_cust').value.trim(), dueDate: $('#iv_due').value, items: lines, amountPaid: num($('#iv_paid').value), notes: $('#iv_notes').value.trim() };
+            var btn = $('#iv_save'); btn.disabled = true; btn.textContent = 'Saving…';
+            (isEdit ? api('apiUpdateInvoice', state.token, draft) : api('apiCreateInvoice', state.token, draft))
+              .then(function (res) { closeModal(); toast('Saved'); if (window.__invvLoad) window.__invvLoad(); openInvoiceData(res); })
+              .catch(function (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Save'; });
+          });
+        });
+    }).catch(function (e) { toast(e.message, true); });
+  }
+  function openInvoice(id) { api('apiGetInvoice', state.token, id).then(openInvoiceData).catch(function (e) { toast(e.message, true); }); }
+  function openInvoiceData(data) {
+    var v = data.invoice, items = data.items, set = state.settings;
+    var bal = (Number(v.total) || 0) - (Number(v.amountPaid) || 0);
+    var doc = '<div id="receipt" class="invoice-doc">' +
+      (set.logoUrl ? '<img class="r-logo" src="' + esc(set.logoUrl) + '" alt="">' : '') +
+      '<div class="inv-head"><div><div class="r-biz">' + esc(set.businessName) + '</div>' +
+        '<div class="muted" style="font-size:.78rem">' + esc(set.address || '') + (set.phone ? '<br>' + esc(set.phone) : '') + '</div></div>' +
+        '<div style="text-align:right"><div style="font-family:var(--font-display);font-weight:700;font-size:1.1rem">INVOICE</div><div class="mono">' + esc(v.ref) + '</div>' +
+          '<div class="muted" style="font-size:.78rem">' + dt(v.date) + (v.dueDate ? '<br>Due: ' + esc(String(v.dueDate).slice(0, 10)) : '') + '</div></div></div>' +
+      '<div class="r-rule"></div>' +
+      '<div style="margin:8px 0"><span class="muted">Bill to:</span> <strong>' + esc(v.customerName || '—') + '</strong></div>' +
+      '<table class="table"><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>' +
+        items.map(function (it) { return '<tr><td>' + esc(it.name) + '</td><td class="num">' + it.qty + '</td><td class="num">' + money(it.price) + '</td><td class="num">' + money(it.subtotal) + '</td></tr>'; }).join('') +
+      '</tbody></table>' +
+      '<div class="r-line"><span>Subtotal</span><span>' + money(v.itemsSubtotal) + '</span></div>' +
+      (num(v.discount) ? '<div class="r-line"><span>Discount</span><span>-' + money(v.discount) + '</span></div>' : '') +
+      (num(v.tax) ? '<div class="r-line"><span>VAT</span><span>' + money(v.tax) + '</span></div>' : '') +
+      '<div class="r-line"><strong>Total</strong><strong>' + money(v.total) + '</strong></div>' +
+      '<div class="r-line"><span>Paid</span><span>' + money(v.amountPaid) + '</span></div>' +
+      '<div class="r-line"><strong>Balance</strong><strong>' + money(bal) + '</strong></div>' +
+      (v.notes ? '<div class="r-rule"></div><div class="muted">' + esc(v.notes) + '</div>' : '') +
+      '<div class="r-center muted" style="margin-top:10px">' + esc(set.receiptFooter || '') + '</div></div>';
+    modal('Invoice ' + v.ref, doc + '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">' +
+      '<button class="btn btn-ghost" id="iv_print">Print</button>' +
+      '<button class="btn btn-ghost" id="iv_edit">Edit</button>' +
+      (bal > 0 ? '<button class="btn btn-ghost" id="iv_pay">Record payment</button>' : '') +
+      '<button class="btn btn-danger" id="iv_del">Delete</button></div>', function () {
+        $('#iv_print').addEventListener('click', function () { window.print(); });
+        $('#iv_edit').addEventListener('click', function () { invoiceModal(data); });
+        var pb = $('#iv_pay'); if (pb) pb.addEventListener('click', function () { recordPaymentModal('invoice', v.id, function () { openInvoice(v.id); if (window.__invvLoad) window.__invvLoad(); }); });
+        $('#iv_del').addEventListener('click', function () {
+          api('apiDeleteInvoice', state.token, v.id).then(function () { closeModal(); toast('Deleted'); if (window.__invvLoad) window.__invvLoad(); }).catch(function (e) { toast(e.message, true); });
+        });
+      });
+  }
+
+  // ---- dashboard helpers (cards + customize) --------------------------------
+  function financeRole() { return state.user && (state.user.role === 'owner' || state.user.role === 'manager'); }
+  function dashVisible() { try { return JSON.parse(localStorage.getItem('nl-dash') || '{}'); } catch (e) { return {}; } }
+  function dashSet(v) { localStorage.setItem('nl-dash', JSON.stringify(v)); }
+  function plRow(l, v) { return '<div class="row"><span class="muted">' + esc(l) + '</span><span class="num">' + v + '</span></div>'; }
+  function creditTable(title, list) {
+    return '<div class="card"><h2>' + esc(title) + '</h2>' + (list.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Total</th><th>Paid</th><th>Balance</th><th>Due</th><th></th></tr></thead><tbody>' +
+      list.map(function (r) {
+        return '<tr><td>' + esc(r.name) + '</td><td class="num">' + money(r.total) + '</td><td class="num">' + money(r.amountPaid) + '</td><td class="num">' + money(r.balance) + '</td>' +
+          '<td>' + (r.dueDate ? esc(String(r.dueDate).slice(0, 10)) : '—') + '</td>' +
+          '<td><button class="btn btn-ghost btn-sm" data-rp="' + r.refType + ':' + r.refId + '">Pay</button></td></tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="muted">Nothing outstanding.</p>') + '</div>';
+  }
+  function dashCardDefs() {
+    return [
+      { id: 'stats', label: 'Key figures', render: function (d) {
+        return '<div class="stat-grid">' +
+          statCard('Inventory value', money(d.stockValue)) + statCard('Cash balance', money(d.cashBalance)) +
+          statCard('Transactions', d.transactionCount) + statCard('Products', d.productCount) +
+          statCard('Yearly revenue', money(d.yearlyRevenue)) + statCard('Suppliers', d.supplierCount) +
+          statCard('Money due to you', money(d.receivables), 'amber') + statCard('You owe', money(d.payables), 'red') + '</div>';
+      } },
+      { id: 'quick', label: 'Quick actions', render: function () {
+        return '<div class="card"><h2>Quick actions</h2><div class="quick-actions">' +
+          '<button class="btn btn-primary" data-qa="pos">' + icon('shopping-cart') + 'New sale</button>' +
+          '<button class="btn btn-ghost" data-qa="invoice">' + icon('file-text') + 'New invoice</button>' +
+          '<button class="btn btn-ghost" data-qa="purchase">' + icon('shopping-bag') + 'Credit purchase</button>' +
+          '<button class="btn btn-ghost" data-qa="expense">' + icon('minus') + 'Expense</button>' +
+          '<button class="btn btn-ghost" data-qa="income">' + icon('plus') + 'Add money</button></div></div>';
+      } },
+      { id: 'graph', label: 'Running balance graph', render: function (d) {
+        return (d.cashSeries && d.cashSeries.length) ? '<div class="card"><h2>Running balance · 30 days</h2>' + lineChart(d.cashSeries) + '</div>' : '';
+      } },
+      { id: 'pnl', label: 'Profit & Loss', render: function (d) {
+        var p = d.pnl || {};
+        return '<div class="card"><h2>Profit &amp; Loss · this month</h2>' +
+          plRow('Revenue', money(p.revenue)) + plRow('Cost of goods', money(p.cogs)) +
+          plRow('Gross profit', money(p.grossProfit)) + plRow('Expenses', money(p.expenses)) +
+          '<div class="row"><strong>Net profit</strong><strong class="num">' + money(p.netProfit) + '</strong></div>' +
+          plRow('Top selling', p.topSelling ? esc(p.topSelling.name) : '—') +
+          plRow('Most profitable', p.mostProfitable ? esc(p.mostProfitable.name) : '—') + '</div>';
+      } },
+      { id: 'invoices', label: 'Invoice status', render: function (d) {
+        var s = d.invoiceStatus || {};
+        return '<div class="card"><h2>Invoice status</h2><div class="stat-grid" style="margin-bottom:0">' +
+          statCard('Unpaid', s.unpaid || 0) + statCard('Overdue', s.overdue || 0, 'red') + statCard('Paid', s.paid || 0) + '</div></div>';
+      } },
+      { id: 'receivables', label: 'Receivables (due to you)', render: function (d) { return creditTable('Receivables — money due to you', d.receivablesList || []); } },
+      { id: 'payables', label: 'Payables (you owe)', render: function (d) { return creditTable('Payables — what you owe', d.payablesList || []); } },
+      { id: 'lowstock', label: 'Low-stock alerts', render: function (d) {
+        return '<div class="card"><h2>Low-stock alerts</h2>' + ((d.lowCount + d.outCount) ? '<div class="row"><span><span class="badge bad">' + d.outCount + ' out</span> <span class="badge warn">' + d.lowCount + ' low</span></span><span class="link" data-qa2="inventory">View stock</span></div>' : '<p class="muted">All good — nothing low.</p>') + '</div>';
+      } },
+      { id: 'recent', label: 'Recent transactions', render: function (d) {
+        return '<div class="card"><h2>Recent transactions</h2>' + ((d.recentTx || []).length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Customer</th><th>Total</th></tr></thead><tbody>' +
+          d.recentTx.map(function (t) { return '<tr><td>' + dt(t.date) + '</td><td>' + esc(t.item) + '</td><td class="num">' + t.qty + '</td><td>' + esc(t.customer) + '</td><td class="num">' + money(t.total) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<p class="muted">No sales yet.</p>') + '</div>';
+      } }
+    ];
+  }
+  function wireDash() {
+    $all('[data-qa]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = b.getAttribute('data-qa');
+        if (a === 'pos') go('pos');
+        else if (a === 'invoice') { go('invoices'); setTimeout(function () { invoiceModal(null); }, 60); }
+        else if (a === 'purchase') { go('purchases'); setTimeout(purchaseModal, 60); }
+        else if (a === 'expense') { go('cash'); setTimeout(expenseModal, 60); }
+        else if (a === 'income') { go('cash'); setTimeout(incomeModal, 60); }
+      });
+    });
+    $all('[data-qa2]').forEach(function (b) { b.addEventListener('click', function () { go(b.getAttribute('data-qa2')); }); });
+    $all('[data-rp]').forEach(function (b) { b.addEventListener('click', function () { var p = b.getAttribute('data-rp').split(':'); recordPaymentModal(p[0], p[1], function () { route(); }); }); });
+  }
+  function customizeDash(defs) {
+    var vis = dashVisible();
+    modal('Customize dashboard',
+      '<p class="muted" style="font-size:.82rem;margin-top:0">Show or hide cards.</p>' +
+      defs.map(function (c) { return '<label class="row" style="cursor:pointer"><span>' + esc(c.label) + '</span><input type="checkbox" data-dc="' + c.id + '"' + (vis[c.id] !== false ? ' checked' : '') + '></label>'; }).join('') +
+      '<button class="btn btn-primary btn-block" id="dc_save" style="margin-top:12px">Done</button>', function () {
+        $('#dc_save').addEventListener('click', function () {
+          var v = {}; $all('[data-dc]').forEach(function (cb) { v[cb.getAttribute('data-dc')] = cb.checked; });
+          dashSet(v); closeModal(); route();
+        });
+      });
+  }
+
   // ---- Customers ------------------------------------------------------------
   VIEWS.customers = function () {
     return {
@@ -899,8 +1231,9 @@
       mount: function () {
         function run() {
           var opts = {}; if ($('#rFrom').value) opts.from = $('#rFrom').value; if ($('#rTo').value) opts.to = $('#rTo').value;
-          Promise.all([api('apiSalesSummary', state.token, opts), api('apiInventoryValue', state.token)]).then(function (r) {
-            var s = r[0], inv = r[1];
+          Promise.all([api('apiSalesSummary', state.token, opts), api('apiInventoryValue', state.token),
+            api('apiCustomerReport', state.token), api('apiSupplierReport', state.token)]).then(function (r) {
+            var s = r[0], inv = r[1], custs = r[2], sups = r[3];
             window.__lastReport = s;
             $('#rOut').innerHTML =
               '<div class="stat-grid">' +
@@ -909,7 +1242,8 @@
               (s.byDay.length ? '<div class="card"><h2>By day</h2><div class="bars">' + barChart(s.byDay) + '</div></div>' : '') +
               '<div class="card" style="margin-top:16px"><h2>Top products</h2>' + (s.topProducts.length ? s.topProducts.map(function (p) {
                 return '<div class="row"><span>' + esc(p.name) + ' <span class="muted">×' + p.qty + '</span></span><strong class="num">' + money(p.revenue) + '</strong></div>';
-              }).join('') : '<p class="muted">No data.</p>') + '</div>';
+              }).join('') : '<p class="muted">No data.</p>') + '</div>' +
+              reportTable('Customer report', custs) + reportTable('Supplier report', sups);
           }).catch(function (e) { $('#rOut').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
         }
         $('#rGo').addEventListener('click', run);
