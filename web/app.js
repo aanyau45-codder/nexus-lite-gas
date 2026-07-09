@@ -57,24 +57,45 @@
   }
 
   // ---- server bridge (fetch → Apps Script JSON API) -------------------------
+  // Only read-only calls are safe to auto-retry (a mutation might have run even
+  // if the response looked wrong — never silently repeat those).
+  function isRetryable(fn) {
+    return /^apiGet/.test(fn) ||
+      /^api(Bootstrap|Ping|Me|Dashboard|Receivables|Payables|FindDuplicates|SalesSummary|InventoryValue|ProfitLoss|CustomerReport|SupplierReport)$/.test(fn);
+  }
+  function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
   function api(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
     if (!API_URL) return Promise.reject(new Error('API URL is not set. Edit config.js.'));
-    return fetch(API_URL, {
-      method: 'POST',
-      redirect: 'follow',
-      // text/plain keeps this a CORS "simple request" (no preflight Apps Script can't answer)
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ fn: fn, args: args })
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error('Server error (' + r.status + ')');
-        return r.json();
+    var maxTries = isRetryable(fn) ? 4 : 1;   // ride out Apps Script cold starts (~5–10s)
+    function attempt(n) {
+      return fetch(API_URL, {
+        method: 'POST',
+        redirect: 'follow',
+        // text/plain keeps this a CORS "simple request" (no preflight Apps Script can't answer)
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ fn: fn, args: args })
       })
-      .then(function (res) {
-        if (!res || res.ok !== true) throw new Error((res && res.error) || 'Request failed');
-        return res.data;
-      });
+        .then(function (r) { return r.text().then(function (t) { return { status: r.status, text: t }; }); })
+        .then(function (res) {
+          var data;
+          try { data = JSON.parse(res.text); }
+          catch (e) {
+            // Not JSON — usually a cold-start HTML interstitial. Retry safe reads.
+            if (n < maxTries) return delay(900 * n).then(function () { return attempt(n + 1); });
+            throw new Error('The server is waking up or was briefly unreachable. Please wait a few seconds and try again.');
+          }
+          if (!data || data.ok !== true) throw new Error((data && data.error) || 'Request failed');
+          return data.data;
+        })
+        .catch(function (err) {
+          // Network blip (fetch throws TypeError) — retry safe reads.
+          if (err instanceof TypeError && n < maxTries) return delay(900 * n).then(function () { return attempt(n + 1); });
+          throw err;
+        });
+    }
+    return attempt(1);
   }
 
   // ---- state ----------------------------------------------------------------
@@ -519,14 +540,23 @@
                : '<div class="r-line"><span>Change</span><span>' + money(s.changeDue) + '</span></div>') +
       '<div class="r-rule"></div>' +
       '<div class="r-center muted">' + esc(set.receiptFooter || '') + '</div></div>';
-    modal('Receipt', html + '<div style="display:flex;gap:8px;margin-top:16px">' +
-      '<button class="btn btn-ghost btn-block" id="rPrint">Print</button>' +
-      '<button class="btn btn-ghost btn-block" id="rShare">WhatsApp</button>' +
-      '<button class="btn btn-primary btn-block" id="rNew">New sale</button></div>', function () {
+    var canDelete = state.user && (state.user.role === 'owner' || state.user.role === 'manager') && s.id;
+    modal('Receipt', html + '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">' +
+      '<button class="btn btn-ghost" id="rPrint">Print</button>' +
+      '<button class="btn btn-ghost" id="rShare">WhatsApp</button>' +
+      (canDelete ? '<button class="btn btn-danger" id="rDel">Delete sale</button>' : '') +
+      '<button class="btn btn-primary" id="rNew">New sale</button></div>', function () {
         $('#rPrint').addEventListener('click', function () { window.print(); });
         $('#rNew').addEventListener('click', function () { closeModal(); route(); });
         $('#rShare').addEventListener('click', function () {
           window.open('https://wa.me/?text=' + encodeURIComponent(receiptText(s, items, state.settings)), '_blank');
+        });
+        var dl = $('#rDel'); if (dl) dl.addEventListener('click', function () {
+          if (!confirm('Delete sale ' + s.ref + '?\nThis restores the stock and reverses the cash. It cannot be undone.')) return;
+          dl.disabled = true; dl.textContent = 'Deleting…';
+          api('apiDeleteSale', state.token, s.id).then(function () { return refreshProducts(); })
+            .then(function () { closeModal(); toast('Sale deleted'); route(); })
+            .catch(function (er) { toast(er.message, true); dl.disabled = false; dl.textContent = 'Delete sale'; });
         });
       });
   }
@@ -1686,7 +1716,9 @@
     }
     renderLogin();
   }).catch(function (e) {
-    $('#app').innerHTML = '<div class="boot"><p>Could not reach the server.</p><p class="muted">' + esc(e.message) +
-      '</p><p class="muted">Check the <code>API_URL</code> in config.js, that the Web App is deployed (Anyone), and that <code>ensureSeed()</code> has been run once.</p></div>';
+    $('#app').innerHTML = '<div class="boot"><p>Couldn’t reach the server.</p>' +
+      '<p class="muted">It may be waking up after being idle. Give it a few seconds, then try again.</p>' +
+      '<button class="btn btn-primary" id="bootRetry">Retry</button></div>';
+    var rb = $('#bootRetry'); if (rb) rb.addEventListener('click', function () { location.reload(); });
   });
 })();

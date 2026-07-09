@@ -111,3 +111,42 @@ function apiGetSale(token, id) {
     items: getTable('SaleItems').filter(function (x) { return String(x.saleId) === String(id); })
   };
 }
+
+/**
+ * Delete (void) a sale entered by mistake. Owner/manager only. Reverses it:
+ * restores stock (and serials), logs void movements, and reverses the cash it
+ * brought in, then removes the sale + its items.
+ */
+function apiDeleteSale(token, id) {
+  var user = requireRole_(token, ['owner', 'manager']);
+  return withLock(function () {
+    var sale = getById('Sales', id);
+    if (!sale) throw new Error('Sale not found.');
+    var date = now_();
+    var items = getTable('SaleItems').filter(function (x) { return String(x.saleId) === String(id); });
+    items.forEach(function (it) {
+      var prod = it.productId ? getById('Products', it.productId) : null;
+      if (prod) {
+        var qty = Number(it.qty) || 0;
+        var serials = String(prod.serials || '');
+        if (it.serials) serials += (serials ? '\n' : '') + it.serials;   // give the serials back
+        updateRow('Products', it.productId, { stock: (Number(prod.stock) || 0) + qty, serials: serials, updatedAt: date });
+        appendRow('StockMovements', {
+          id: uuid_(), date: date, productId: it.productId, productName: prod.name,
+          change: qty, reason: 'void', ref: sale.ref, note: 'Sale deleted'
+        });
+      }
+      deleteRow('SaleItems', it.id);
+    });
+    // reverse the cash this sale brought in (paid minus change given)
+    var cashIn = (Number(sale.amountPaid) || 0) - (Number(sale.changeDue) || 0);
+    if (cashIn > 0) {
+      cashEntry_({
+        type: 'sale_reversal', direction: 'out', amount: cashIn, refType: 'sale', refId: id,
+        note: 'Reversed sale ' + sale.ref, recordedBy: user.name || user.username, date: date
+      });
+    }
+    deleteRow('Sales', id);
+    return { ok: true, ref: sale.ref };
+  });
+}

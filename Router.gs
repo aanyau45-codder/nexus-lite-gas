@@ -28,7 +28,8 @@ var API_ALLOW = {
   apiProfitLoss: 1, apiCustomerReport: 1, apiSupplierReport: 1,
   apiCreatePurchaseOrder: 1, apiGetPurchaseOrders: 1, apiGetPurchaseOrder: 1,
   apiSetPurchaseOrderStatus: 1, apiDeletePurchaseOrder: 1, apiGetStockMovements: 1,
-  apiFindDuplicates: 1, apiMergeProducts: 1, apiMergeContacts: 1
+  apiFindDuplicates: 1, apiMergeProducts: 1, apiMergeContacts: 1,
+  apiDeleteSale: 1
 };
 
 function doPost(e) {
