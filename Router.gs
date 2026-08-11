@@ -26,6 +26,7 @@ var API_ALLOW = {
   apiRecordPayment: 1, apiReceivables: 1, apiPayables: 1,
   apiCreateInvoice: 1, apiUpdateInvoice: 1, apiGetInvoices: 1, apiGetInvoice: 1, apiDeleteInvoice: 1,
   apiProfitLoss: 1, apiCustomerReport: 1, apiSupplierReport: 1,
+  apiPurchasesSummary: 1, apiGeneralReport: 1,
   apiCreatePurchaseOrder: 1, apiGetPurchaseOrders: 1, apiGetPurchaseOrder: 1,
   apiSetPurchaseOrderStatus: 1, apiDeletePurchaseOrder: 1, apiGetStockMovements: 1,
   apiFindDuplicates: 1, apiMergeProducts: 1, apiMergeContacts: 1,

@@ -141,5 +141,27 @@ function apiGetCashFlow(token, opts) {
   rows.sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
   var all = rows.slice();
   if (opts.limit) rows = rows.slice(0, opts.limit);
-  return { balance: cashBalance_(), rows: rows, series: cashSeries_(opts.days || 30) };
+
+  // Period totals + breakdowns for the Cash Flow report (computed over the full
+  // date-filtered set, not the `limit`-sliced `rows`, so they stay accurate).
+  var periodIn = 0, periodOut = 0, typeAgg = {}, dayAgg = {};
+  all.forEach(function (r) {
+    var amt = Number(r.amount) || 0;
+    var out = String(r.direction) === 'out';
+    if (out) periodOut += amt; else periodIn += amt;
+    var tk = String(r.type || 'other');
+    if (!typeAgg[tk]) typeAgg[tk] = { type: tk, direction: out ? 'out' : 'in', count: 0, total: 0 };
+    typeAgg[tk].count++; typeAgg[tk].total += amt;
+    var d = String(r.date).slice(0, 10);
+    dayAgg[d] = (dayAgg[d] || 0) + (out ? -amt : amt);
+  });
+  var byType = Object.keys(typeAgg).map(function (k) { return typeAgg[k]; })
+    .sort(function (a, b) { return b.total - a.total; });
+  var byDay = Object.keys(dayAgg).sort().map(function (d) { return { day: d, net: dayAgg[d] }; });
+
+  return {
+    balance: cashBalance_(), rows: rows, series: cashSeries_(opts.days || 30),
+    periodIn: periodIn, periodOut: periodOut, periodNet: periodIn - periodOut,
+    byType: byType, byDay: byDay
+  };
 }

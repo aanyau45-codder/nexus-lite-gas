@@ -20,6 +20,10 @@
   function fmtNum(n) { return Math.round(num(n)).toLocaleString('en-US'); }
   function money(n) { return cur() + ' ' + fmtNum(n); }
   function todayISO() { return new Date().toISOString().slice(0, 10); }
+  function monthStartISO() {
+    var n = new Date();
+    return n.getFullYear() + '-' + ('0' + (n.getMonth() + 1)).slice(-2) + '-01';
+  }
   function dt(s) { return esc(String(s).slice(0, 16).replace('T', ' ')); }
 
   // ---- icons (Lucide, inline SVG) -------------------------------------------
@@ -337,6 +341,21 @@
       rows.map(function (x) {
         return '<tr><td>' + esc(x.name) + '</td><td class="num">' + x.count + '</td><td class="num">' + money(x.total) +
           '</td><td class="num">' + money(x.paid) + '</td><td class="num">' + money(x.balance) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="muted">No data.</p>') + '</div>';
+  }
+  function dayValueTable(title, colLabel, byDay, valueKey) {
+    return '<div class="card" style="margin-top:16px"><h2>' + esc(title) + '</h2>' + (byDay && byDay.length ?
+      '<div class="table-wrap"><table class="table"><thead><tr><th>Day</th><th>' + esc(colLabel) + '</th></tr></thead><tbody>' +
+      byDay.map(function (d) {
+        return '<tr><td>' + esc(d.day) + '</td><td class="num">' + money(d[valueKey]) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="muted">No data.</p>') + '</div>';
+  }
+  function plDayTable(byDay) {
+    return '<div class="card" style="margin-top:16px"><h2>By day</h2>' + (byDay && byDay.length ?
+      '<div class="table-wrap"><table class="table"><thead><tr><th>Day</th><th>Revenue</th><th>COGS</th><th>Expenses</th><th>Net profit</th></tr></thead><tbody>' +
+      byDay.map(function (d) {
+        return '<tr><td>' + esc(d.day) + '</td><td class="num">' + money(d.revenue) + '</td><td class="num">' + money(d.cogs) +
+          '</td><td class="num">' + money(d.expenses) + '</td><td class="num">' + money(d.netProfit) + '</td></tr>';
       }).join('') + '</tbody></table></div>' : '<p class="muted">No data.</p>') + '</div>';
   }
   function barChart(byDay) {
@@ -1579,36 +1598,154 @@
   }
 
   // ---- Reports --------------------------------------------------------------
+  var REPORT_TYPES = [
+    { id: 'sales', label: 'Sales' },
+    { id: 'purchases', label: 'Purchases' },
+    { id: 'pnl', label: 'Profit & Loss' },
+    { id: 'general', label: 'General' },
+    { id: 'netprofit', label: 'Net Profit' },
+    { id: 'cashflow', label: 'Cash Flow' }
+  ];
+  var REPORT_RENDERERS = {
+    sales: function (opts, done) {
+      api('apiSalesSummary', state.token, opts).then(function (s) {
+        var csv = 'Product,Qty,Revenue\n' + s.topProducts.map(function (p) { return '"' + p.name + '",' + p.qty + ',' + p.revenue; }).join('\n');
+        done(null,
+          '<div class="stat-grid">' +
+            statCard('Revenue', money(s.total)) + statCard('Sales', s.count) + statCard('Avg sale', money(s.avg)) +
+            statCard('VAT collected', money(s.tax), 'amber') + '</div>' +
+          (s.byDay.length ? '<div class="card"><h2>By day</h2><div class="bars">' + barChart(s.byDay) + '</div></div>' : '') +
+          '<div class="card" style="margin-top:16px"><h2>Top products</h2>' + (s.topProducts.length ? s.topProducts.map(function (p) {
+            return '<div class="row"><span>' + esc(p.name) + ' <span class="muted">×' + p.qty + '</span></span><strong class="num">' + money(p.revenue) + '</strong></div>';
+          }).join('') : '<p class="muted">No data.</p>') + '</div>' +
+          reportTable('Top customers', s.topCustomers), csv);
+      }).catch(function (e) { done(e); });
+    },
+    purchases: function (opts, done) {
+      api('apiPurchasesSummary', state.token, opts).then(function (p) {
+        var csv = 'Product,Qty,Cost\n' + p.topProducts.map(function (x) { return '"' + x.name + '",' + x.qty + ',' + x.revenue; }).join('\n');
+        done(null,
+          '<div class="stat-grid">' +
+            statCard('Total spent', money(p.total)) + statCard('Purchases', p.count) + statCard('Avg purchase', money(p.avg)) +
+            statCard('Items received', p.itemsQty) + '</div>' +
+          (p.byDay.length ? '<div class="card"><h2>By day</h2><div class="bars">' + barChart(p.byDay) + '</div></div>' : '') +
+          '<div class="card" style="margin-top:16px"><h2>Top products bought</h2>' + (p.topProducts.length ? p.topProducts.map(function (x) {
+            return '<div class="row"><span>' + esc(x.name) + ' <span class="muted">×' + x.qty + '</span></span><strong class="num">' + money(x.revenue) + '</strong></div>';
+          }).join('') : '<p class="muted">No data.</p>') + '</div>' +
+          reportTable('Top suppliers', p.topSuppliers), csv);
+      }).catch(function (e) { done(e); });
+    },
+    pnl: function (opts, done) {
+      api('apiProfitLoss', state.token, opts).then(function (p) {
+        var csv = 'Day,Revenue,COGS,Expenses,Net Profit\n' + p.byDay.map(function (d) { return d.day + ',' + d.revenue + ',' + d.cogs + ',' + d.expenses + ',' + d.netProfit; }).join('\n');
+        done(null,
+          '<div class="stat-grid">' +
+            statCard('Revenue', money(p.revenue)) + statCard('Cost of goods', money(p.cogs)) +
+            statCard('Gross profit', money(p.grossProfit)) + statCard('Expenses', money(p.expenses)) +
+            statCard('Net profit', money(p.netProfit), p.netProfit < 0 ? 'red' : null) + statCard('Sales', p.salesCount) + '</div>' +
+          '<div class="card"><h2>Highlights</h2>' +
+            plRow('Top selling', p.topSelling ? esc(p.topSelling.name) + ' ×' + p.topSelling.qty : '—') +
+            plRow('Most profitable', p.mostProfitable ? esc(p.mostProfitable.name) : '—') + '</div>' +
+          plDayTable(p.byDay), csv);
+      }).catch(function (e) { done(e); });
+    },
+    general: function (opts, done) {
+      api('apiGeneralReport', state.token, opts).then(function (g) {
+        var csv = 'Metric,Value\n' +
+          'Sales total,' + g.sales.total + '\nSales count,' + g.sales.count +
+          '\nPurchases total,' + g.purchases.total + '\nPurchases count,' + g.purchases.count +
+          '\nExpenses total,' + g.expenses.total +
+          '\nCash in,' + g.cashFlow.inAmt + '\nCash out,' + g.cashFlow.outAmt + '\nCash net,' + g.cashFlow.net +
+          '\nGross profit,' + g.profit.grossProfit + '\nNet profit,' + g.profit.netProfit +
+          '\nInventory cost value (as of today),' + g.inventory.costValue + '\nInventory retail value (as of today),' + g.inventory.retailValue +
+          '\nReceivables (as of today),' + g.receivables + '\nPayables (as of today),' + g.payables;
+        done(null,
+          '<div class="card"><h2>Period activity</h2><div class="stat-grid" style="margin-bottom:0">' +
+            statCard('Sales', money(g.sales.total)) + statCard('Purchases', money(g.purchases.total)) +
+            statCard('Expenses', money(g.expenses.total)) + statCard('Net profit', money(g.profit.netProfit), g.profit.netProfit < 0 ? 'red' : null) +
+          '</div></div>' +
+          '<div class="card" style="margin-top:16px"><h2>Cash movement</h2><div class="stat-grid" style="margin-bottom:0">' +
+            statCard('Cash in', money(g.cashFlow.inAmt)) + statCard('Cash out', money(g.cashFlow.outAmt)) +
+            statCard('Net change', money(g.cashFlow.net), g.cashFlow.net < 0 ? 'red' : null) + statCard('Cash balance now', money(g.cashBalance)) +
+          '</div></div>' +
+          '<div class="card" style="margin-top:16px"><h2>Snapshot — as of today</h2><div class="stat-grid" style="margin-bottom:0">' +
+            statCard('Inventory value (retail)', money(g.inventory.retailValue)) + statCard('Inventory value (cost)', money(g.inventory.costValue)) +
+            statCard('Money due to you', money(g.receivables), 'amber') + statCard('You owe', money(g.payables), 'red') +
+          '</div></div>', csv);
+      }).catch(function (e) { done(e); });
+    },
+    netprofit: function (opts, done) {
+      api('apiProfitLoss', state.token, opts).then(function (p) {
+        var totalCosts = p.cogs + p.expenses;
+        var margin = p.revenue > 0 ? (p.netProfit / p.revenue * 100) : 0;
+        var csv = 'Day,Net Profit\n' + p.byDay.map(function (d) { return d.day + ',' + d.netProfit; }).join('\n');
+        done(null,
+          '<div class="stat-grid">' +
+            statCard('Revenue', money(p.revenue)) + statCard('Total costs', money(totalCosts)) +
+            statCard('Net profit', money(p.netProfit), p.netProfit < 0 ? 'red' : null) + statCard('Margin', margin.toFixed(1) + '%') + '</div>' +
+          dayValueTable('Net profit by day', 'Net profit', p.byDay, 'netProfit'), csv);
+      }).catch(function (e) { done(e); });
+    },
+    cashflow: function (opts, done) {
+      api('apiGetCashFlow', state.token, opts).then(function (c) {
+        var csv = 'Type,Direction,Count,Total\n' + c.byType.map(function (t) { return t.type + ',' + t.direction + ',' + t.count + ',' + t.total; }).join('\n');
+        done(null,
+          '<div class="stat-grid">' +
+            statCard('Cash in', money(c.periodIn)) + statCard('Cash out', money(c.periodOut)) +
+            statCard('Net change', money(c.periodNet), c.periodNet < 0 ? 'red' : null) + statCard('Balance now', money(c.balance)) + '</div>' +
+          '<div class="card"><h2>By type</h2>' + (c.byType.length ?
+            '<div class="table-wrap"><table class="table"><thead><tr><th>Type</th><th>Dir</th><th>Count</th><th>Total</th></tr></thead><tbody>' +
+            c.byType.map(function (t) {
+              return '<tr><td style="text-transform:capitalize">' + esc(String(t.type).replace(/_/g, ' ')) + '</td><td>' + (t.direction === 'out' ? '−' : '+') +
+                '</td><td class="num">' + t.count + '</td><td class="num">' + money(t.total) + '</td></tr>';
+            }).join('') + '</tbody></table></div>' : '<p class="muted">No data.</p>') + '</div>' +
+          dayValueTable('Net movement by day', 'Net', c.byDay, 'net'), csv);
+      }).catch(function (e) { done(e); });
+    }
+  };
   VIEWS.reports = function () {
     return {
       html: '<div class="view-head"><h1>Reports</h1></div>' +
+        '<div class="toolbar">' + REPORT_TYPES.map(function (t) { return '<button class="chip" data-rt="' + t.id + '">' + t.label + '</button>'; }).join('') + '</div>' +
         '<div class="toolbar"><input class="input" id="rFrom" type="date" style="max-width:170px">' +
         '<input class="input" id="rTo" type="date" style="max-width:170px"><button class="btn btn-ghost btn-sm" id="rGo">Run</button>' +
-        '<button class="btn btn-ghost btn-sm" id="rCsv">Export CSV</button></div><div id="rOut"><div class="empty">Pick a range and Run.</div></div>',
+        '<button class="btn btn-ghost btn-sm" id="rCsv">Export CSV</button></div><div id="rOut"><div class="empty">Pick a report and a range, then Run.</div></div>',
       mount: function () {
-        function run() {
-          var opts = {}; if ($('#rFrom').value) opts.from = $('#rFrom').value; if ($('#rTo').value) opts.to = $('#rTo').value;
-          Promise.all([api('apiSalesSummary', state.token, opts), api('apiInventoryValue', state.token),
-            api('apiCustomerReport', state.token), api('apiSupplierReport', state.token)]).then(function (r) {
-            var s = r[0], inv = r[1], custs = r[2], sups = r[3];
-            window.__lastReport = s;
-            $('#rOut').innerHTML =
-              '<div class="stat-grid">' +
-                statCard('Revenue', money(s.total)) + statCard('Sales', s.count) + statCard('VAT collected', money(s.tax), 'amber') +
-                statCard('Stock value (retail)', money(inv.retailValue)) + '</div>' +
-              (s.byDay.length ? '<div class="card"><h2>By day</h2><div class="bars">' + barChart(s.byDay) + '</div></div>' : '') +
-              '<div class="card" style="margin-top:16px"><h2>Top products</h2>' + (s.topProducts.length ? s.topProducts.map(function (p) {
-                return '<div class="row"><span>' + esc(p.name) + ' <span class="muted">×' + p.qty + '</span></span><strong class="num">' + money(p.revenue) + '</strong></div>';
-              }).join('') : '<p class="muted">No data.</p>') + '</div>' +
-              reportTable('Customer report', custs) + reportTable('Supplier report', sups);
-          }).catch(function (e) { $('#rOut').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+        var type = state.reportType && REPORT_RENDERERS[state.reportType] ? state.reportType : 'sales';
+        $('#rFrom').value = state.reportFrom || monthStartISO();
+        $('#rTo').value = state.reportTo || todayISO();
+
+        function markActive() {
+          $all('[data-rt]').forEach(function (c) { c.classList.toggle('active', c.getAttribute('data-rt') === type); });
         }
+        markActive();
+
+        function run() {
+          state.reportType = type;
+          state.reportFrom = $('#rFrom').value || '';
+          state.reportTo = $('#rTo').value || '';
+          var opts = {}; if (state.reportFrom) opts.from = state.reportFrom; if (state.reportTo) opts.to = state.reportTo;
+          $('#rOut').innerHTML = '<div class="empty">Loading…</div>';
+          window.__reportCsv = null;
+          REPORT_RENDERERS[type](opts, function (err, html, csv) {
+            if (err) { $('#rOut').innerHTML = '<div class="empty">' + esc(err.message) + '</div>'; return; }
+            $('#rOut').innerHTML = html;
+            window.__reportCsv = csv;
+          });
+        }
+
+        $all('[data-rt]').forEach(function (c) {
+          c.addEventListener('click', function () {
+            type = c.getAttribute('data-rt');
+            markActive();
+            run();
+          });
+        });
         $('#rGo').addEventListener('click', run);
         $('#rCsv').addEventListener('click', function () {
-          var s = window.__lastReport; if (!s) { toast('Run a report first', true); return; }
-          var csv = 'Product,Qty,Revenue\n' + s.topProducts.map(function (p) { return '"' + p.name + '",' + p.qty + ',' + p.revenue; }).join('\n');
-          var blob = new Blob([csv], { type: 'text/csv' }); var a = document.createElement('a');
-          a.href = URL.createObjectURL(blob); a.download = 'report.csv'; a.click();
+          if (!window.__reportCsv) { toast('Run a report first', true); return; }
+          var blob = new Blob([window.__reportCsv], { type: 'text/csv' }); var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob); a.download = type + '-report.csv'; a.click();
         });
         run();
       }
