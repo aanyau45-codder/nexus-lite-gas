@@ -22,7 +22,7 @@ var API_ALLOW = {
   apiAddCashEntry: 1, apiAddExpense: 1, apiGetExpenses: 1, apiGetCashFlow: 1,
   apiBulkSaveProducts: 1, apiBulkAddExpenses: 1,
   apiGetSuppliers: 1, apiSaveSupplier: 1, apiDeleteSupplier: 1,
-  apiCreatePurchase: 1, apiGetPurchases: 1, apiGetPurchase: 1,
+  apiCreatePurchase: 1, apiGetPurchases: 1, apiGetPurchase: 1, apiDeletePurchase: 1,
   apiRecordPayment: 1, apiReceivables: 1, apiPayables: 1,
   apiCreateInvoice: 1, apiUpdateInvoice: 1, apiGetInvoices: 1, apiGetInvoice: 1, apiDeleteInvoice: 1,
   apiProfitLoss: 1, apiCustomerReport: 1, apiSupplierReport: 1,

@@ -79,3 +79,41 @@ function apiGetPurchase(token, id) {
     items: getTable('PurchaseItems').filter(function (x) { return String(x.purchaseId) === String(id); })
   };
 }
+
+/**
+ * Delete (void) a purchase entered by mistake. Owner/manager only. Reverses it:
+ * removes the stock it added and reverses any cash paid against it (including
+ * later partial payments, since those update this row's amountPaid directly),
+ * then removes the purchase + its items.
+ */
+function apiDeletePurchase(token, id) {
+  var user = requireRole_(token, ['owner', 'manager']);
+  return withLock(function () {
+    var purchase = getById('Purchases', id);
+    if (!purchase) throw new Error('Purchase not found.');
+    var date = now_();
+    var items = getTable('PurchaseItems').filter(function (x) { return String(x.purchaseId) === String(id); });
+    items.forEach(function (it) {
+      var prod = it.productId ? getById('Products', it.productId) : null;
+      if (prod) {
+        var qty = Number(it.qty) || 0;
+        var left = Math.max(0, (Number(prod.stock) || 0) - qty);
+        updateRow('Products', it.productId, { stock: left, updatedAt: date });
+        appendRow('StockMovements', {
+          id: uuid_(), date: date, productId: it.productId, productName: prod.name,
+          change: -qty, reason: 'void', ref: purchase.ref, note: 'Purchase deleted'
+        });
+      }
+      deleteRow('PurchaseItems', it.id);
+    });
+    var amountPaid = Number(purchase.amountPaid) || 0;
+    if (amountPaid > 0) {
+      cashEntry_({
+        type: 'purchase_reversal', direction: 'in', amount: amountPaid, refType: 'purchase', refId: id,
+        note: 'Reversed purchase ' + purchase.ref, recordedBy: user.name || user.username, date: date
+      });
+    }
+    deleteRow('Purchases', id);
+    return { ok: true, ref: purchase.ref };
+  });
+}

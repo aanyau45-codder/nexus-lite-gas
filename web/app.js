@@ -1276,9 +1276,18 @@
             var bal = (Number(p.total) || 0) - (Number(p.amountPaid) || 0);
             return '<tr><td class="mono">' + esc(p.ref) + '</td><td>' + dt(p.date) + '</td><td>' + esc(p.supplierName || '—') + '</td>' +
               '<td class="num">' + money(p.total) + '</td><td class="num">' + money(bal) + '</td><td>' + statusBadge(p.status) + '</td>' +
-              '<td>' + (bal > 0 ? '<button class="btn btn-ghost btn-sm" data-pay="' + p.id + '">Pay</button>' : '') + '</td></tr>';
+              '<td style="white-space:nowrap">' + (bal > 0 ? '<button class="btn btn-ghost btn-sm" data-pay="' + p.id + '">Pay</button> ' : '') +
+              '<button class="btn btn-danger btn-sm" data-del="' + p.id + '" data-ref="' + esc(p.ref) + '">Delete</button></td></tr>';
           }).join('') + '</tbody></table></div>' : '<div class="empty">No purchases yet.</div>';
         $all('[data-pay]').forEach(function (b) { b.addEventListener('click', function () { recordPaymentModal('purchase', b.getAttribute('data-pay'), load); }); });
+        $all('[data-del]').forEach(function (b) { b.addEventListener('click', function () {
+          var id = b.getAttribute('data-del'), ref = b.getAttribute('data-ref');
+          if (!confirm('Delete purchase ' + ref + '?\nThis removes the stock it added and reverses any cash paid against it. It cannot be undone.')) return;
+          b.disabled = true; b.textContent = 'Deleting…';
+          api('apiDeletePurchase', state.token, id).then(function () { return refreshProducts(); })
+            .then(function () { toast('Purchase deleted'); load(); })
+            .catch(function (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Delete'; });
+        }); });
       }).catch(function (e) { $('#purList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
     }
     window.__purLoad = load; load();
